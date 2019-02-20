@@ -1,0 +1,383 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description:
+    This template deploys a RDS MSSQL and creates a S3 Bucket for backups
+
+# RDS Metadata declaration block
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Network - Resource Values 
+      Parameters:
+      - VpcStackName
+      - ClientIpAddress
+
+    - Label:
+        default: General Database Settings
+      Parameters:
+      - DBInstanceName
+      - DBUser
+      - DBAdminRoleName
+
+    - Label:
+        default: Engine options
+      Parameters:
+      - DBEngine
+
+    - Label:
+        default: Database Instance Especifications
+      Parameters:
+      - DBInstanceClass
+      - DBSnapshotId
+      - DBMultiAZ
+      - DBStorageType
+      - DBAllocatedStorage
+      - DBProvisionedIOPS
+      - DBStorageEncrypted
+
+    - Label:
+        default: Database Backup Especification
+      Parameters:
+      - DBBackupWindow
+      - DBBackupRetentionPeriod
+
+    - Label:
+        default: Database Roles
+      Parameters:
+      - ExistsRDSServiceRole
+
+    - Label:
+        default: Tags
+      Parameters:
+      - IsWork
+      - WorkType
+
+    ParameterLabels:
+      VpcStackName:
+        default: VPC Stack Name
+      ClientIpAddress:
+        default: Client Location CIDR
+      DBInstanceName:
+        default: Instance Name
+      DBUser:
+        default: Admin Username
+      DBAdminRoleName:
+        default: Admin Role Type
+      DBEngine:
+        default: Engine
+      DBInstanceClass:
+        default: DB Instance
+      DBSnapshotId:
+        default: Snapshot Identifier to start Database
+      DBMultiAZ:
+        default: Multi-AZ
+      DBStorageType:
+        default: Storage Type
+      DBAllocatedStorage:
+        default: Allocated Storage
+      DBProvisionedIOPS:
+        default: Provisioned IOPS
+      DBStorageEncrypted:
+        default: Storage Encrypted
+      DBBackupRetentionPeriod:
+        default: Retention Period
+      DBBackupWindow:
+        default: Backup Window (UTC)
+      ExistsRDSServiceRole: 
+        default: RDS Backups Role for S3 Access 
+      IsWork:
+        default: Work Related Stack?
+      WorkType:
+        default: If Work Related, What Project/Training/Type
+
+# RDS Parameter declaration block
+Parameters:
+  # Database Network Resource Parameters
+  VpcStackName:
+    Type: String
+    Description: Base VPC stack name, which cloudformation stack provides VPC exports values to this stack
+    Default: vpc-customer360-main
+  ClientIpAddress:
+    Description: 'The IP address range that can be used to connect to the RDS instances from your local machine. It must be a valid IP CIDR range of the form x.x.x.x/x. Pls get your address using checkip.amazonaws.com or whatsmyip.org'
+    Type: String
+    MinLength: 9
+    MaxLength: 18
+    Default: "0.0.0.0/0"
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: ;It must be a valid IP CIDR range of the form x.x.x.x/x. Suggest to enable access to your IP address only. Pls get your address using checkip.amazonaws.com or whatsmyip.org.'
+
+  # General Database Settings Parameters
+  DBInstanceName: 
+    Type: String
+    MinLength: 1
+    MaxLength: 64
+    Default: mysql-customer360
+    AllowedPattern: '([a-z0-9\-]){1,64}'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+  
+  DBUser:
+    Type: String
+    Description : The database admin account username
+    MinLength: 1
+    MaxLength: 16
+    Default: admin
+    AllowedPattern: '([a-zA-Z0-9\-]){1,16}'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+
+  AdminRoleName:
+    Type: String
+    Description: Who is going to administer this DB instance. Secret manager path will use this string
+    AllowedValues:
+    - dbadmin
+    - developer
+    Default: dbadmin
+
+  # Engine Parameters
+  DBEngine:
+    Type: String
+    Default: mysql
+    AllowedValues:
+    - mysql
+    - aurora
+
+  # Database Instance Specification Parameters
+  DBInstanceClass:
+    Type: String
+    Default: db.t2.small
+    AllowedValues:
+    - db.t2.small
+    - db.t2.medium
+    - db.t2.large
+      
+  DBSnapshotId:
+    Type: String
+    Default: 'arn:aws:rds:eu-west-1:271342081496:snapshot:rds:clouderaprep-2019-02-16-23-53'
+  
+  DBMultiAZ:
+    Type: String
+    Default: false
+    AllowedValues: 
+    - true
+    - false
+
+  DBStorageType:
+    Type: String
+    Default: gp2
+    AllowedValues:
+    - gp2
+    - io1
+
+  DBAllocatedStorage:
+    Type: String
+    Default: 20
+    AllowedPattern: '([0-9]){2,4}'
+    ConstraintDescription: must be an integer (20GB-16TB).
+
+  DBProvisionedIOPS:
+    Type: String
+    Default: 1000
+    AllowedPattern: '([0-9]){4,5}'
+    ConstraintDescription: must be an integer (1000-32000).
+
+  DBStorageEncrypted:
+    Type: String
+    Default: false
+    AllowedValues:
+    - false
+    - true
+
+  # Backup
+  DBBackupRetentionPeriod:
+    Type: String
+    Default: 7
+    AllowedPattern: '([0-9]){1,4}'
+    ConstraintDescription: Must be an integer greater than zero
+
+  DBBackupWindow:
+    Type: String
+    Default: 01:00-03:00
+    AllowedPattern: '[0-9]{2}:[0-9]{2}-[0-9]{2}:[0-9]{2}'
+    ConstraintDescription: Must be in the format HH:mm-HH:mm.
+
+  # Roles parameters
+  ExistsRDSServiceRole:
+    AllowedPattern: "[YN]"
+    ConstraintDescription: "Permitted value is Y or N."
+    Default: "N"
+    Description: "If the S3 Access role exists for this database, please enter Y, else enter N"
+    MaxLength: 1
+    MinLength: 1
+    Type: String
+
+  # Tags Parameters
+  IsWork:
+    Type: String  
+    Description: Defines if it is work related activity
+    AllowedValues: [true, false]
+    Default: true
+
+  WorkType:
+    Type: String  
+    Description: Defines the type of work being done
+    Default: customer360
+
+# RDS Mappings declaration block
+Mappings:
+  Names:
+    production:
+      short: prod
+      cap: Production
+
+    development:
+      short: dev
+      cap: Development
+
+# RDS Conditions declaration block
+# RDS Resources declaration block
+Resources:
+  # Create Role for writing backups to S3
+  RDSServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub 'rds-${DBInstanceName}'    
+      Path: '/'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - rds.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: !Sub 'policy-${DBInstanceName}'
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:  
+          - Effect: Allow
+            Action:
+            - s3:ListBucket
+            - s3:GetBucketLocation
+            Resource: !Sub 'arn:aws:s3:::${WorkType}-${DBInstanceName}-rds'
+          - Effect: Allow
+            Action:
+            - s3:GetObjectMetaData
+            - s3:GetObject
+            - s3:PutObject
+            - s3:ListMultipartUploadParts
+            - s3:AbortMultipartUpload
+            Resource: !Sub 'arn:aws:s3:::${WorkType}-${DBInstanceName}-rds/*'
+
+  # Create and Securely Store MySQL Admin Password
+  RDSPassword:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      Name: !Sub ${AdminRoleName}/rds/${DBInstanceName}
+      Description: RDS Admin user MSSQL
+      GenerateSecretString:
+        SecretStringTemplate: !Sub '{"username": "${DBUser}"}'
+        GenerateStringKey: "password"
+        PasswordLength: 8
+        ExcludeCharacters: '"@/\$^~;()[]?'
+      Tags:
+      - Key: IsWork
+        Value: !Ref IsWork
+      - Key: WorkType
+        Value: !Ref WorkType
+
+  # Create RDS Security Group
+  RDSSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: 'Security group for MySQL DB Instance'
+      GroupName: !Sub 'sgn-rds-${DBInstanceName}'
+      VpcId: !Sub '${VpcStackName}:VpcId'
+      SecurityGroupIngress: 
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        CidrIp: !Ref ClientIpAddress
+      Tags:
+      - Key: IsWork
+        Value: !Ref IsWork
+      - Key: WorkType
+        Value: !Ref WorkType
+
+  # Create RDS Subnet group from existing VPC subnets
+  RDSSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupName: !Sub 'sng-rds-${DBInstanceName}'
+      DBSubnetGroupDescription: 'Subnets group RDS'
+      SubnetIds: 
+        - Fn::ImportValue: 
+            !Sub '${VpcStackName}:subnet-580bb064'
+        - Fn::ImportValue: 
+            !Sub '${VpcStackName}:subnet-a50d78fe'
+        - Fn::ImportValue: 
+            !Sub '${VpcStackName}:subnet-e52e91e9'
+      Tags:
+      - Key: IsWork
+        Value: !Ref IsWork
+      - Key: WorkType
+        Value: !Ref WorkType
+  
+  # Create S3 Bucket for Backups
+  DBS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub '${WorkType}-${DBInstanceName}-rds'
+      AccessControl: BucketOwnerFullControl
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: true
+      Tags:
+      - Key: IsWork
+        Value: !Ref IsWork
+      - Key: WorkType
+        Value: !Ref WorkType
+
+  RDSInstance:
+    Type: 'AWS::RDS::DBInstance'
+    DependsOn:
+      - RDSSecurityGroup
+      - RDSSubnetGroup
+    Properties:
+      DBInstanceIdentifier: !Ref DBInstanceName
+      AllocatedStorage: !Ref DBAllocatedStorage
+      StorageType: !Ref DBStorageType
+      StorageEncrypted: !Ref DBStorageEncrypted
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine: !Ref DBEngine
+      DBSnapshotIdentifier: !Ref DBSnapshotId
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref RDSPassword, ':SecretString:password}}' ]]
+      BackupRetentionPeriod: !Ref DBBackupRetentionPeriod
+      PreferredBackupWindow: !Ref DBBackupWindow
+      PubliclyAccessible: false
+      Timezone: UTC
+      MultiAZ: !Ref DBMultiAZ
+      AutoMinorVersionUpgrade: true
+      VPCSecurityGroups: 
+        - !Ref RDSSecurityGroup
+      DBSubnetGroupName: !Ref RDSSubnetGroup
+      Tags:
+      - Key: IsWork
+        Value: !Ref IsWork
+      - Key: WorkType
+        Value: !Ref WorkType
+
+# RDS Outputs declaration block
+Outputs:
+  RDSEndpoint:
+      Description : Database Endpoint
+      Value : !Sub '${RDSInstance.Endpoint.Address}}:1433'
+    
+  AdminLocation1:
+    Description: Source CIDR for dba connections
+    Value: !Ref ClientIpAddress
+    Export:
+      Name: !Join [ ":", [ !Ref 'AWS::StackName', ClientIpAddress ] ]

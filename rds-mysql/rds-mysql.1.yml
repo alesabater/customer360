@@ -234,24 +234,13 @@ Mappings:
       cap: Development
 
 # RDS Conditions declaration block
-Conditions:
-  StorageTypeIO: 
-  - Fn::Equals: [ !Ref DBStorageType, io1 ]
-  NotProduction:
-  - Fn::Equals: [ !Ref DBMultiAZ, false ]
-  NotExistsRDSServiceRole: 
-  - Fn::Equals: [ !Ref ExistsRDSServiceRole, "N"]
-
 # RDS Resources declaration block
 Resources:
   # Create Role for writing backups to S3
   RDSServiceRole:
     Type: 'AWS::IAM::Role'
-    Condition: NotExistsRDSServiceRole
     Properties:
-      RoleName: 
-      - Fn::Sub:
-        - Sub 'rds-${DBInstanceName}'    
+      RoleName: !Sub 'rds-${DBInstanceName}'    
       Path: '/'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -262,9 +251,7 @@ Resources:
             - rds.amazonaws.com
           Action: sts:AssumeRole
       Policies:
-      - PolicyName: 
-        - Fn::Sub:
-              - 'policy-${DBInstanceName}'
+      - PolicyName: !Sub 'policy-${DBInstanceName}'
         PolicyDocument:
           Version: '2012-10-17'
           Statement:  
@@ -272,9 +259,7 @@ Resources:
             Action:
             - s3:ListBucket
             - s3:GetBucketLocation
-            Resource: 
-            - Fn::Sub:
-              - 'arn:aws:s3:::${WorkType}-${DBInstanceName}-rds'
+            Resource: !Sub 'arn:aws:s3:::${WorkType}-${DBInstanceName}-rds'
           - Effect: Allow
             Action:
             - s3:GetObjectMetaData
@@ -282,26 +267,24 @@ Resources:
             - s3:PutObject
             - s3:ListMultipartUploadParts
             - s3:AbortMultipartUpload
-            Resource:
-            - Fn::Sub:
-              - 'arn:aws:s3:::${WorkType}-${DBInstanceName}-rds/*'
+            Resource: !Sub 'arn:aws:s3:::${WorkType}-${DBInstanceName}-rds/*'
 
   # Create and Securely Store MySQL Admin Password
   RDSPassword:
-  Type: 'AWS::SecretsManager::Secret'
-  Properties:
-    Name: !Sub ${AdminRoleName}/rds/${DBInstanceName}
-    Description: RDS Admin user MSSQL
-    GenerateSecretString:
-      SecretStringTemplate: !Sub '{"username": "${DBUser}"}'
-      GenerateStringKey: "password"
-      PasswordLength: 8
-      ExcludeCharacters: '"@/\$^~;()[]?'
-    Tags:
-    - Key: IsWork
-      Value: !Ref IsWork
-    - Key: WorkType
-      Value: !Ref WorkType
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      Name: !Sub ${AdminRoleName}/rds/${DBInstanceName}
+      Description: RDS Admin user MSSQL
+      GenerateSecretString:
+        SecretStringTemplate: !Sub '{"username": "${DBUser}"}'
+        GenerateStringKey: "password"
+        PasswordLength: 8
+        ExcludeCharacters: '"@/\$^~;()[]?'
+      Tags:
+      - Key: IsWork
+        Value: !Ref IsWork
+      - Key: WorkType
+        Value: !Ref WorkType
 
   # Create RDS Security Group
   RDSSecurityGroup:
@@ -317,9 +300,9 @@ Resources:
         CidrIp: !Ref ClientIpAddress
       Tags:
       - Key: IsWork
-      Value: !Ref IsWork
+        Value: !Ref IsWork
       - Key: WorkType
-      Value: !Ref WorkType
+        Value: !Ref WorkType
 
   # Create RDS Subnet group from existing VPC subnets
   RDSSubnetGroup:
@@ -336,9 +319,9 @@ Resources:
             !Sub '${VpcStackName}:subnet-e52e91e9'
       Tags:
       - Key: IsWork
-      Value: !Ref IsWork
+        Value: !Ref IsWork
       - Key: WorkType
-      Value: !Ref WorkType
+        Value: !Ref WorkType
   
   # Create S3 Bucket for Backups
   DBS3Bucket:
@@ -353,9 +336,9 @@ Resources:
         RestrictPublicBuckets: true
       Tags:
       - Key: IsWork
-      Value: !Ref IsWork
+        Value: !Ref IsWork
       - Key: WorkType
-      Value: !Ref WorkType
+        Value: !Ref WorkType
 
   RDSInstance:
     Type: 'AWS::RDS::DBInstance'
@@ -366,8 +349,6 @@ Resources:
       DBInstanceIdentifier: !Ref DBInstanceName
       AllocatedStorage: !Ref DBAllocatedStorage
       StorageType: !Ref DBStorageType
-      Iops: 
-        !If [StorageTypeIO,  !Ref DBProvisionedIOPS, 0]
       StorageEncrypted: !Ref DBStorageEncrypted
       DBInstanceClass: !Ref DBInstanceClass
       Engine: !Ref DBEngine
@@ -385,16 +366,15 @@ Resources:
       DBSubnetGroupName: !Ref RDSSubnetGroup
       Tags:
       - Key: IsWork
-      Value: !Ref IsWork
+        Value: !Ref IsWork
       - Key: WorkType
-      Value: !Ref WorkType
+        Value: !Ref WorkType
 
 # RDS Outputs declaration block
 Outputs:
   RDSEndpoint:
       Description : Database Endpoint
-      Value : !Sub 
-        - '${DBInstanceName.Endpoint.Address}}:1433'
+      Value : !Sub '${RDSInstance.Endpoint.Address}}:1433'
     
   AdminLocation1:
     Description: Source CIDR for dba connections
