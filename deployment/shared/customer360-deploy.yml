@@ -167,6 +167,17 @@ Resources:
     DependsOn:
     - Customer360NetworkStack
 
+  Customer360CDCStack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !FindInMap ["SourceCode", "General", "S3Bucket"], !FindInMap ["SourceCode", "General", "KeyPrefix"], "customer360-cdc.yml"]]
+      Parameters:
+        BaseVpcStackName: !Ref BaseVpcStackName
+        InputStack: Y
+    DependsOn:
+    - Customer360NetworkStack
+    - Customer360StorageStack
+
 Outputs:
   StackName:
     Value:
