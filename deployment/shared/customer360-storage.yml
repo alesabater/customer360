@@ -1,0 +1,232 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description:
+    This template deploys a RDS MSSQL and creates a S3 Bucket for backups
+
+# RDS Metadata declaration block
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    
+    - Label:
+        default: Network - Resource Values
+      Parameters:
+      - BaseVpcStackName
+    
+    - Label:
+        default: Secret Manager - Resources Values
+      Parameters:
+      - DBMasterUser
+    
+    - Label:
+        default: Database Instance Especifications
+      Parameters:
+      - DBInstanceClass
+      - DBSnapshotId
+      - DBMultiAZ
+      - DBAllocatedStorage
+
+    - Label:
+        default: Tags
+      Parameters:
+      - IsWork
+      - WorkType
+
+    ParameterLabels:
+      BaseVpcStackName:
+        default: VPC Id
+      DBMasterUser:
+        default: Admin Username
+      DBInstanceClass:
+        default: DB Instance
+      DBSnapshotId:
+        default: Snapshot Identifier to start Database
+      DBMultiAZ:
+        default: Multi-AZ
+      DBAllocatedStorage:
+        default: Allocated Storage
+      IsWork:
+        default: Work Related Stack?
+      WorkType:
+        default: If Work Related, What Project/Training/Type
+
+# RDS Parameter declaration block
+Parameters:
+  # Secret Manager - Resources Parameters
+  BaseVpcStackName:
+    Type: String
+    Description: VPC Id
+
+  # General Database Settings Parameters
+  DBMasterUser:
+    Type: String
+    Description : The database admin account username
+    MinLength: 1
+    MaxLength: 16
+    Default: admin
+    AllowedPattern: '([a-zA-Z0-9\-]){1,16}'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+
+  # Database Instance Specification Parameters
+  DBInstanceClass:
+    Type: String
+    Default: db.t2.small
+    AllowedValues:
+    - db.t2.small
+    - db.t2.medium
+    - db.t2.large
+      
+  DBSnapshotId:
+    Type: String
+    Default: 'arn:aws:rds:eu-west-1:271342081496:snapshot:clouderaprep-final-snapshot'
+  
+  DBMultiAZ:
+    Type: String
+    Default: false
+    AllowedValues: 
+    - true
+    - false
+
+  DBAllocatedStorage:
+    Type: String
+    Default: 20
+    AllowedPattern: '([0-9]){2,4}'
+    ConstraintDescription: must be an integer (20GB-16TB).
+
+  # Tags Parameters
+  IsWork:
+    Type: String  
+    Description: Defines if it is work related activity
+    AllowedValues: [true, false]
+    Default: true
+
+  WorkType:
+    Type: String  
+    Description: Defines the type of work being done
+    Default: customer360
+
+# RDS Resources declaration block
+Resources:
+  MySecretDB:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      Name: customer360-secret
+      Description: RDS Admin user Mysql
+      GenerateSecretString:
+        SecretStringTemplate: !Sub '{"username": "${DBMasterUser}"}'
+        GenerateStringKey: "password"
+        PasswordLength: 20
+        ExcludeCharacters: '"@/\'
+
+  RdsSubnetGroup: 
+    Type: AWS::RDS::DBSubnetGroup 
+    Properties: 
+      DBSubnetGroupName: 'grp-rds-mysql-customer360'
+      DBSubnetGroupDescription: 'Subnets group RDS'
+      SubnetIds: 
+        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PrivateSubnet'
+        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet'
+      Tags:
+        - Key: Name
+          Value: 'grp-rds-customer360'
+        - Key: IsWork
+          Value: !Ref IsWork
+        - Key: WorkType
+          Value: !Ref WorkType
+
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: 'sgn-rds-mysql-customer360'
+      GroupDescription: 'Enable RDS MySQL access via port 3306'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306 
+          ToPort: 3306 
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '3306'
+          ToPort: '3306'
+          CidrIp: 
+            Fn::ImportValue: !Sub '${BaseVpcStackName}:VpcCidr'
+      Tags:
+        - Key: Name
+          Value: 'grp-rds-customer360'
+        - Key: IsWork
+          Value: !Ref IsWork
+        - Key: WorkType
+          Value: !Ref WorkType
+      VpcId: 
+        Fn::ImportValue: !Sub '${BaseVpcStackName}:VpcId'
+
+  MySQLDBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: 'Enables bin_log prerequisites'
+      Family: mysql5.6
+      Parameters:
+        binlog_format: ROW
+        binlog_checksum: NONE 
+
+  RDSMySql: 
+    Type: AWS::RDS::DBInstance
+    DependsOn: 
+      - RdsSubnetGroup
+      - RdsSecurityGroup
+      - MySecretDB
+    Properties: 
+      DBParameterGroupName: !Ref MySQLDBParameterGroup
+      AllocatedStorage: !Ref 'DBAllocatedStorage'
+      DBInstanceClass: !Ref 'DBInstanceClass'
+      Engine: 'MySQL'
+      DBSnapshotIdentifier: !Ref DBSnapshotId
+      MultiAZ: !Ref DBMultiAZ
+      DBSubnetGroupName: !Ref 'RdsSubnetGroup'
+      MasterUsername: !Join ['', ['{{resolve:secretsmanager:', !Ref MySecretDB, ':SecretString:username}}' ]]
+      MasterUserPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref MySecretDB, ':SecretString:password}}' ]]
+      BackupRetentionPeriod: 0
+      DBInstanceIdentifier: 'rds-mysql-customer360'
+      VPCSecurityGroups: 
+        - !Ref 'RdsSecurityGroup'
+      Tags:
+        - Key: Name
+          Value: 'rds-mysql-customer360'
+        - Key: IsWork
+          Value: !Ref IsWork
+        - Key: WorkType
+          Value: !Ref WorkType
+
+# RDS Outputs declaration block
+Outputs:
+  StackName:
+    Value:
+      Ref: AWS::StackName
+
+  RegionName:
+    Value:
+      Ref: AWS::Region
+
+  RDSAddress:
+      Description : Database Address
+      Value : !Sub '${RDSMySql.Endpoint.Address}}'
+      Export:
+        Name: !Join [ ":", [ !Ref 'BaseVpcStackName', DBAddress ] ]  
+
+  RDSEndpoint:
+      Description : Database Endpoint
+      Value : !Sub '${RDSMySql.Endpoint.Address}}:1433'
+      Export:
+        Name: !Join [ ":", [ !Ref 'BaseVpcStackName', DBEndpoint ] ]  
+
+  RDSMysqlInstanceId:
+    Description: A reference to the RDS MySQL Database Name
+    Value: !GetAtt RDSMySql.DBInstanceIdentifier
+    Export:
+      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', DBName ] ]
+  
+  MySecretDB:
+    Description: A reference to the RDS MySQL Database Secret
+    Value: !Ref MySecretDB
+    Export:
+      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', Secret ] ]
+  

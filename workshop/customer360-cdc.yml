@@ -1,0 +1,395 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "CloudFormation template for deployment of Change Data Capture infrastructure for Customer360.
+              deploys the following components:
+              - DMS for CDC
+              - S3 bucket for CDC"
+Metadata: 
+  AWS::CloudFormation::Interface:
+    ParameterGroups:  
+    - Label:
+        default: Network - Resource Values
+      Parameters:
+      - DBVpc
+      - DBPublicSubnet
+      - DBPrivateSubnet
+
+    - Label:
+        default: Security - Roles status
+      Parameters:
+      - ExistsDMSVPCRole
+      - ExistsDMSCloudwatchRole
+
+    - Label: 
+        default: Security - Database access
+      Parameters:
+      - DBUser
+      - DBPassword
+      - DBEndpoint
+
+    
+    ParameterLabels:
+      DBVpc:
+        default: The VPC for the DMS
+      DBPublicSubnet:
+        default: The Public subnet For DMS
+      DBPrivateSubnet:
+        default: The Private subnet For DMS
+      ExistsDMSVPCRole:
+        default: Y or N if DMS VPC Role exists
+      ExistsDMSCloudwatchRole:
+        default: Y or N if DMS Cloudwatch Role exists
+      DBUser:
+        default: Username used to login Database from which data will be migrated
+      DBPassword:
+        default: Password used to login Database from which data will be migrated
+      DBEndpoint: 
+        default: Database Hostname
+
+Parameters: 
+  BaseVpcStackName:
+    Type: String
+    Description: Stack name for importing parameters
+    NoEcho: true
+    default: vpc-customer360
+  
+  DBVpc:
+    String: String
+    Description: VPC where DB is hosted
+    default: vpc-customer360
+
+  DBPublicSubnet:
+    Type: String
+    Description: Public Subnet where DB is hosted
+    default: PublicSubnet1
+  
+  DBPrivateSubnet:
+    Type: String
+    Description: Private Subnet where DB is hosted
+    default: PrivateSubnet1
+  
+  InputStack: 
+    Default: N
+    Description: If there is an input CFN stack for Parameters, , please enter Y, else enter N
+    Type: String
+    MinLength: '1'
+    MaxLength: '1'
+    AllowedPattern: "[YN]"
+    ConstraintDescription: Permitted value is Y or N.
+    NoEcho: true
+  
+  ExistsDMSVPCRole:
+    Default: N
+    Description: If the dms-vpc-role exists in your account, please enter Y, else enter N
+    Type: String
+    MinLength: '1'
+    MaxLength: '1'
+    AllowedPattern: "[YN]"
+    ConstraintDescription: Permitted value is Y or N.
+  
+  ExistsDMSCloudwatchRole:
+    Default: N
+    Description: If the dms-cloudwatch-logs-role exists in your account, please enter
+      Y, else enter N
+    Type: String
+    MinLength: '1'
+    MaxLength: '1'
+    AllowedPattern: "[YN]"
+    ConstraintDescription: Permitted value is Y or N.
+  
+  DBUser:
+    Type: String
+    MinLength: 1
+    MaxLength: 16
+    Default: username
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*" # Start with a letter, only alphanumeric characters
+
+  DBPassword:
+    Type: String
+    MinLength: 8
+    MaxLength: 41
+    Default: password
+    NoEcho: true
+    AllowedPattern: "[a-zA-Z0-9]*" # Must only contain alphanumeric characters
+  
+  DBEndpoint:
+    String: String
+    Description: Database hostname 
+
+# Mappings: 
+
+Conditions:
+  NotExistsDMSVPCRole:
+    Fn::Equals: [Ref: ExistsDMSVPCRole, N]
+  NotExistsDMSCloudwatchRole:
+    Fn::Equals: [Ref: ExistsDMSCloudwatchRole, N]
+  ExistsInputStack:
+    Fn::Equals: [Ref: ExistsDMSCloudwatchRole, Y]
+  NotExistsInputStack:
+    Fn::Equals: [Ref: ExistsDMSCloudwatchRole, N]
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: 
+        Fn::Sub:
+        - 'cdc-${DBName}'
+        - DBName: 
+            Fn::ImportValue: !Sub '${BaseVpcStackName}:VpcId'
+      AccessControl: Private
+  
+  DMSCloudwatchRole:
+    Type: AWS::IAM::Role
+    Condition: NotExistsDMSCloudwatchRole
+    Properties:
+      RoleName: dms-cloudwatch-logs-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - dms.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonDMSCloudWatchLogsRole
+      Path: "/"
+
+  DMSVpcRole:
+    Type: AWS::IAM::Role
+    Condition: NotExistsDMSVPCRole
+    Properties:
+      RoleName: dms-vpc-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - dms.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonDMSVPCManagementRole
+      Path: "/"
+  
+  S3TargetDMSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: dms-s3-target-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - dms.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: S3AccessForDMSPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:PutObject
+            - s3:DeleteObject
+            Resource:
+            - !GetAtt S3Bucket.Arn
+            - Fn::Join: ['', !GetAtt S3Bucket.Arn, "/*"]
+          - Effect: Allow
+            Action: s3:ListBucket
+            Resource: !GetAtt S3Bucket.Arn
+    DependsOn:
+    - S3Bucket
+
+  # Subnet stack using input parameters
+  DMSReplicationSubnetGroup:
+    Condition: NotExistsInputStack
+    Type: AWS::DMS::ReplicationSubnetGroup
+    Properties:
+      ReplicationSubnetGroupDescription: Subnets available for DMS
+      SubnetIds:
+      - Ref: DBPublicSubnet
+      - Ref: DBPrivateSubnet
+  
+  DMSReplicationSubnetGroupFromStack:
+    Condition: ExistsInputStack
+    Type: AWS::DMS::ReplicationSubnetGroup
+    Properties:
+      ReplicationSubnetGroupDescription: Subnets available for DMS
+      SubnetIds:
+      - Fn::ImportValue: !Sub '${BaseVpcStackName}:PrivateSubnet'
+      - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet'
+  
+  DMSSecurityGroupFromStack:
+    Condition: ExistsInputStack
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for DMS Instance
+      GroupName: DMS Demo Security Group
+      VpcId: !Sub '${BaseVpcStackName}: VpcId'
+
+  DMSSecurityGroup:
+    Condition: NotExistsInputStack
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for DMS Instance
+      GroupName: DMS Demo Security Group
+      VpcId: !Ref DBVpc
+
+  DMSReplicationInstance:
+    Condition: NotExistsInputStack
+    Type: AWS::DMS::ReplicationInstance
+    Properties:
+      AvailabilityZone: !GetAtt DBPrivateSubnet.AvailabilityZone
+      PubliclyAccessible: false
+      ReplicationInstanceClass: dms.t2.small
+      ReplicationInstanceIdentifier: aurora-s3-repinstance-customer360
+      ReplicationSubnetGroupIdentifier:
+        Ref: DMSReplicationSubnetGroup
+      VpcSecurityGroupIds:
+      - Ref: DMSSecurityGroup
+    DependsOn:
+    - DMSReplicationSubnetGroup
+    - DMSSecurityGroup
+  
+  DMSReplicationInstanceFromStack:
+    Condition: ExistsInputStack
+    Type: AWS::DMS::ReplicationInstance
+    Properties:
+      AvailabilityZone: !GetAtt DBPrivateSubnet.AvailabilityZone
+      PubliclyAccessible: false
+      ReplicationInstanceClass: dms.t2.small
+      ReplicationInstanceIdentifier: aurora-s3-repinstance-customer360
+      ReplicationSubnetGroupIdentifier:
+        Ref: DMSReplicationSubnetGroupFromStack
+      VpcSecurityGroupIds:
+      - Ref: DMSSecurityGroupFromStack
+    DependsOn:
+    - DMSReplicationSubnetGroupFromStack
+    - DMSSecurityGroupFromStack
+
+  MySQLSourceEndpoint:
+    Condition: NotExistsInputStack
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointType: source
+      EngineName: mysql
+      Password: !Ref DBPassword
+      Port: 3306
+      ServerName: !Ref DBEndpoint
+      Username: !Ref DBUsername
+    DependsOn:
+    - DMSReplicationInstance
+
+  MySQLSourceEndpointFromStack:
+    Condition: ExistsInputStack
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointType: source
+      EngineName: mysql
+      Password: !Join ['', ['{{resolve:secretsmanager:', Fn::ImportValue: !Sub '${BaseVpcStackName}:Secret', ':SecretString:password}}' ]]
+      Port: 3306
+      ServerName: 
+        Fn::ImportValue: !Sub '${BaseVpcStackName}:RDSAddress'
+      Username: !Join ['', ['{{resolve:secretsmanager:', Fn::ImportValue: !Sub '${BaseVpcStackName}:Secret', ':SecretString:username}}' ]]
+    DependsOn:
+    - DMSReplicationInstanceFromStack
+  
+  S3TargetEndpoint:
+    Condition: NotExistsInputStack
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointType: target
+      EngineName: S3
+      ExtraConnectionAttributes: addColumnName=true
+      S3Settings:
+        BucketName: !Ref S3Bucket
+        ServiceAccessRoleArn: !GetAtt S3TargetDMSRole.Arn
+    DependsOn:
+    - DMSReplicationInstance
+    - S3Bucket
+    - S3TargetDMSRole
+  
+  S3TargetEndpointFromStack:
+    Condition: ExistsInputStack
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointType: target
+      EngineName: S3
+      ExtraConnectionAttributes: addColumnName=true
+      S3Settings:
+        BucketName: !Ref S3Bucket
+        ServiceAccessRoleArn: !GetAtt S3TargetDMSRole.Arn
+    DependsOn:
+    - DMSReplicationInstance
+    - S3Bucket
+    - S3TargetDMSRole
+  
+  DMSReplicationTask:
+    Condition: NotExistsInputStack
+    Type: AWS::DMS::ReplicationTask
+    Properties:
+      MigrationType: full-load-and-cdc
+      ReplicationInstanceArn:
+        Ref: DMSReplicationInstance
+      ReplicationTaskSettings: '{ "Logging" : { "EnableLogging" : true, "LogComponents":
+        [ { "Id" : "SOURCE_UNLOAD", "Severity" : "LOGGER_SEVERITY_DEFAULT" }, { "Id"
+        : "SOURCE_CAPTURE", "Severity" : "LOGGER_SEVERITY_DEFAULT" }, { "Id" : "TARGET_LOAD",
+        "Severity" : "LOGGER_SEVERITY_DEFAULT" }, { "Id" : "TARGET_APPLY", "Severity"
+        : "LOGGER_SEVERITY_DEFAULT" } ] } }'
+      SourceEndpointArn:
+        Ref: MySQLSourceEndpoint
+      TableMappings: '{ "rules": [ { "rule-type" : "selection", "rule-id" : "1", "rule-name"
+        : "1", "object-locator" : { "schema-name" : "dms_sample", "table-name" : "%"
+        }, "rule-action" : "include" } ] }'
+      TargetEndpointArn:
+        Ref: S3TargetEndpoint
+    DependsOn:
+    - AuroraSourceEndpoint
+    - S3TargetEndpoint
+    - DMSReplicationInstance
+  
+  DMSReplicationTaskFromStack:
+    Condition: ExistsInputStack
+    Type: AWS::DMS::ReplicationTask
+    Properties:
+      MigrationType: full-load-and-cdc
+      ReplicationInstanceArn:
+        Ref: DMSReplicationInstance
+      ReplicationTaskSettings: '{ "Logging" : { "EnableLogging" : true, "LogComponents":
+        [ { "Id" : "SOURCE_UNLOAD", "Severity" : "LOGGER_SEVERITY_DEFAULT" }, { "Id"
+        : "SOURCE_CAPTURE", "Severity" : "LOGGER_SEVERITY_DEFAULT" }, { "Id" : "TARGET_LOAD",
+        "Severity" : "LOGGER_SEVERITY_DEFAULT" }, { "Id" : "TARGET_APPLY", "Severity"
+        : "LOGGER_SEVERITY_DEFAULT" } ] } }'
+      SourceEndpointArn:
+        Ref: MySQLSourceEndpointFromStack
+      TableMappings: '{ "rules": [ { "rule-type" : "selection", "rule-id" : "1", "rule-name"
+        : "1", "object-locator" : { "schema-name" : "dms_sample", "table-name" : "%"
+        }, "rule-action" : "include" } ] }'
+      TargetEndpointArn:
+        Ref: S3TargetEndpointFromStack
+    DependsOn:
+    - AuroraSourceEndpointFromStack
+    - S3TargetEndpointFromStack
+    - DMSReplicationInstanceFromStack
+
+Outputs:
+  StackName:
+    Value:
+      Ref: AWS::StackName
+  RegionName:
+    Value:
+      Ref: AWS::Region
+  S3BucketName:
+    Value:
+      Ref: S3Bucket
+      Export:
+        Name: !Sub '${BaseVpcStackName}:S3BucketCDC'
+
+
+# Outputs:
