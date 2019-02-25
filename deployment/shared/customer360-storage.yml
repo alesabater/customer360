@@ -198,6 +198,36 @@ Resources:
           Value: !Ref IsWork
         - Key: WorkType
           Value: !Ref WorkType
+  
+  DMSReplicationSubnetGroup:
+    Type: AWS::DMS::ReplicationSubnetGroup
+    Properties:
+      ReplicationSubnetGroupDescription: Subnets available for DMS
+      SubnetIds:
+        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PrivateSubnet'
+        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet'
+
+  DMSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for DMS Instance
+      GroupName: DMS Demo Security Group
+      VpcId: 
+        Fn::ImportValue: !Sub '${BaseVpcStackName}:VpcId'
+
+  DMSReplicationInstance:
+    Type: AWS::DMS::ReplicationInstance
+    Properties:
+      PubliclyAccessible: false
+      ReplicationInstanceClass: dms.t2.small
+      ReplicationInstanceIdentifier: aurora-s3-repinstance-customer360
+      ReplicationSubnetGroupIdentifier:
+        Ref: DMSReplicationSubnetGroup
+      VpcSecurityGroupIds:
+      - Ref: DMSSecurityGroup
+    DependsOn:
+    - DMSReplicationSubnetGroup
+    - DMSSecurityGroup
 
 # RDS Outputs declaration block
 Outputs:

@@ -63,8 +63,8 @@ Resources:
     Properties:
       ReplicationSubnetGroupDescription: Subnets available for DMS
       SubnetIds:
-      - Fn::ImportValue: !Sub '${BaseVpcStackName}:PrivateSubnet'
-      - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet'
+      - Fn::ImportValue: !Sub '${BaseVpcStackName}:Private1Subnet'
+      - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet1'
   
   DMSSecurityGroupFromStack:
     Type: AWS::EC2::SecurityGroup
