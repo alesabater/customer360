@@ -54,7 +54,7 @@ Parameters:
       
   DBSnapshotId:
     Type: String
-    Default: 'arn:aws:rds:eu-west-1:271342081496:snapshot:rds:clouderaprep-2019-02-16-23-53'
+    Default: 'arn:aws:rds:eu-west-1:271342081496:snapshot:clouderaprep-final-snapshot'
   
   DBMultiAZ:
     Type: String
@@ -68,6 +68,15 @@ Parameters:
     Default: 20
     AllowedPattern: '([0-9]){2,4}'
     ConstraintDescription: must be an integer (20GB-16TB).
+  
+  ExistsRoles:
+    Default: N
+    Description: If the roles exists for this workshop, please enter Y, else enter N
+    Type: String
+    MinLength: '1'
+    MaxLength: '1'
+    AllowedPattern: "[YN]"
+    ConstraintDescription: Permitted value is Y or N.
   
   # Tags Parameters
   IsWork:
@@ -101,6 +110,11 @@ Metadata:
       - DBSnapshotId
       - DBMultiAZ
       - DBAllocatedStorage
+    
+    - Label:
+        default: IAM - Access related Parameters
+      Parameters:
+      - ExistsRoles
 
     - Label:
         default: Tags
@@ -127,6 +141,8 @@ Metadata:
         default: Multi AZ option
       DBAllocatedStorage:
         default: Storage for MySQL Database
+      ExistsRoles:
+        default: Y or N if DMS Cloudwatch Role exists
       IsWork:
         default: Work Related Stack?
       WorkType:
@@ -167,16 +183,14 @@ Resources:
     DependsOn:
     - Customer360NetworkStack
 
-  Customer360CDCStack:
+  Customer360RolesStack:
     Type: "AWS::CloudFormation::Stack"
     Properties:
-      TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !FindInMap ["SourceCode", "General", "S3Bucket"], !FindInMap ["SourceCode", "General", "KeyPrefix"], "customer360-cdc.yml"]]
+      TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !FindInMap ["SourceCode", "General", "S3Bucket"], !FindInMap ["SourceCode", "General", "KeyPrefix"], "customer360-roles.yml"]]
       Parameters:
         BaseVpcStackName: !Ref BaseVpcStackName
-        InputStack: Y
-    DependsOn:
-    - Customer360NetworkStack
-    - Customer360StorageStack
+        ExistsDMSVPCRole: !Ref ExistsRoles
+        ExistsDMSCloudwatchRole: !Ref ExistsRoles
 
 Outputs:
   StackName:

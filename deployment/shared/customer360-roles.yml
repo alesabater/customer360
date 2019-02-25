@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: ---
+Metadata: 
+  AWS::CloudFormation::Interface:
+    ParameterGroups:  
+
+    - Label:
+        default: Automation - Input Parameters 
+      Parameters:
+      - BaseVpcStackName
+
+    - Label:
+        default: Security - Roles status
+      Parameters:
+      - ExistsDMSVPCRole
+      - ExistsDMSCloudwatchRole
+    
+    ParameterLabels:
+      BaseVpcStackName:
+        default: Input Stack
+      ExistsDMSVPCRole:
+        default: Y or N if DMS VPC Role exists
+      ExistsDMSCloudwatchRole:
+        default: Y or N if DMS Cloudwatch Role exists
+
+Parameters: 
+  BaseVpcStackName:
+    Type: String
+    Description: VPC Id
+
+  ExistsDMSVPCRole:
+    Default: N
+    Description: If the dms-vpc-role exists in your account, please enter Y, else enter N
+    Type: String
+    MinLength: '1'
+    MaxLength: '1'
+    AllowedPattern: "[YN]"
+    ConstraintDescription: Permitted value is Y or N.
+  
+  ExistsDMSCloudwatchRole:
+    Default: N
+    Description: If the dms-cloudwatch-logs-role exists in your account, please enter
+      Y, else enter N
+    Type: String
+    MinLength: '1'
+    MaxLength: '1'
+    AllowedPattern: "[YN]"
+    ConstraintDescription: Permitted value is Y or N.
+
+Conditions: 
+  NotExistsDMSVPCRole:
+    Fn::Equals: [Ref: ExistsDMSVPCRole, N]
+  NotExistsDMSCloudwatchRole:
+    Fn::Equals: [Ref: ExistsDMSCloudwatchRole, N]
+
+Resources:
+
+  DMSCloudwatchRole:
+    Type: AWS::IAM::Role
+    Condition: NotExistsDMSCloudwatchRole
+    Properties:
+      RoleName: dms-cloudwatch-logs-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - dms.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonDMSCloudWatchLogsRole
+      Path: "/"
+
+  DMSVpcRole:
+    Type: AWS::IAM::Role
+    Condition: NotExistsDMSVPCRole
+    Properties:
+      RoleName: dms-vpc-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - dms.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonDMSVPCManagementRole
+      Path: "/"

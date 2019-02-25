@@ -78,7 +78,7 @@ Parameters:
       
   DBSnapshotId:
     Type: String
-    Default: 'arn:aws:rds:eu-west-1:271342081496:snapshot:clouderaprep-final-snapshot'
+    Default: arn:aws:rds:eu-west-1:271342081496:snapshot:clouderaprep-final-snapshot
   
   DBMultiAZ:
     Type: String
@@ -176,14 +176,17 @@ Resources:
       - MySecretDB
     Properties: 
       DBParameterGroupName: !Ref MySQLDBParameterGroup
+      PubliclyAccessible: true
       AllocatedStorage: !Ref 'DBAllocatedStorage'
       DBInstanceClass: !Ref 'DBInstanceClass'
       Engine: 'MySQL'
       DBSnapshotIdentifier: !Ref DBSnapshotId
       MultiAZ: !Ref DBMultiAZ
       DBSubnetGroupName: !Ref 'RdsSubnetGroup'
-      MasterUsername: !Join ['', ['{{resolve:secretsmanager:', !Ref MySecretDB, ':SecretString:username}}' ]]
-      MasterUserPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref MySecretDB, ':SecretString:password}}' ]]
+      #MasterUsername: !Join ['', ['{{resolve:secretsmanager:', !Ref MySecretDB, ':SecretString:username}}' ]]
+      MasterUsername: username
+      #MasterUserPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref MySecretDB, ':SecretString:password}}' ]]
+      MasterUserPassword: password
       BackupRetentionPeriod: 0
       DBInstanceIdentifier: 'rds-mysql-customer360'
       VPCSecurityGroups: 
@@ -207,22 +210,10 @@ Outputs:
       Ref: AWS::Region
 
   RDSAddress:
-      Description : Database Address
+      Description : Database Identifier
       Value : !Sub '${RDSMySql.Endpoint.Address}}'
       Export:
-        Name: !Join [ ":", [ !Ref 'BaseVpcStackName', DBAddress ] ]  
-
-  RDSEndpoint:
-      Description : Database Endpoint
-      Value : !Sub '${RDSMySql.Endpoint.Address}}:1433'
-      Export:
-        Name: !Join [ ":", [ !Ref 'BaseVpcStackName', DBEndpoint ] ]  
-
-  RDSMysqlInstanceId:
-    Description: A reference to the RDS MySQL Database Name
-    Value: !GetAtt RDSMySql.DBInstanceIdentifier
-    Export:
-      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', DBName ] ]
+        Name: !Join [ ":", [ !Ref 'BaseVpcStackName', DBId ] ]  
   
   MySecretDB:
     Description: A reference to the RDS MySQL Database Secret

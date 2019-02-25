@@ -243,7 +243,7 @@ Outputs:
   
   VpcCidr:
     Description: A reference to the created VPC CIDR
-    Value: !GetAtt VPC.CidrBlock
+    Value: !Ref VpcCIDR
     Export:
       Name: !Join [ ":", [ !Ref 'BaseVpcStackName', VpcCidr ] ]
   
@@ -255,7 +255,7 @@ Outputs:
 
   PublicSubnet1Cidr:
     Description: A reference to the created VPC ID
-    Value: !GetAtt PublicSubnet1.CidrBlock
+    Value: !Ref PublicSubnet1CIDR
     Export:
       Name: !Join [ ":", [ !Ref 'BaseVpcStackName', PublicSubnetCidr ] ]
   
@@ -267,6 +267,6 @@ Outputs:
 
   Private1SubnetCidr:
     Description: A reference to the private Subnet CIDR
-    Value: !GetAtt PrivateSubnet1.CidrBlock
+    Value: !Ref PrivateSubnet1CIDR
     Export:
-      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', PrivateSubnet ] ]
+      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', PrivateSubnetCidr ] ]

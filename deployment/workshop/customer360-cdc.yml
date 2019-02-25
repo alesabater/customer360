@@ -1,0 +1,207 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "CloudFormation template for deployment of Change Data Capture infrastructure for Customer360.
+              deploys the following components:
+              - DMS for CDC
+              - S3 bucket for CDC"
+Metadata: 
+  AWS::CloudFormation::Interface:
+    ParameterGroups:  
+    - Label:
+        default: Network - Resource Values
+      Parameters:
+      - DBVpc
+      - DBPublicSubnet
+      - DBPrivateSubnet
+
+    - Label: 
+        default: Security - Database access
+      Parameters:
+      - DBUser
+      - DBPassword
+      - DBEndpoint
+
+    
+    ParameterLabels:
+      DBVpc:
+        default: The VPC for the DMS
+      DBPublicSubnet:
+        default: The Public subnet For DMS
+      DBPrivateSubnet:
+        default: The Private subnet For DMS
+      DBUser:
+        default: Username used to login Database from which data will be migrated
+      DBPassword:
+        default: Password used to login Database from which data will be migrated
+      DBEndpoint: 
+        default: Database Hostname
+
+Parameters: 
+  DBVpc:
+    Type: String
+    Description: VPC where DB is hosted
+    Default: vpc-03cfaf5a3743d9bb8
+
+  DBPublicSubnet:
+    Type: String
+    Description: Public Subnet where DB is hosted
+    Default: subnet-04d6dc914f9c36efa
+  
+  DBPrivateSubnet:
+    Type: String
+    Description: Private Subnet where DB is hosted
+    Default: subnet-085f9eec87ffe3528
+  
+  DBUser:
+    Type: String
+    MinLength: 1
+    MaxLength: 16
+    Default: username
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*" # Start with a letter, only alphanumeric characters
+
+  DBPassword:
+    Type: String
+    MinLength: 8
+    MaxLength: 41
+    Default: password
+    AllowedPattern: "[a-zA-Z0-9]*" # Must only contain alphanumeric characters
+  
+  DBEndpoint:
+    Type: String
+    Description: Database hostname 
+    Default: test-cdc-console.codpf0ubutke.eu-west-1.rds.amazonaws.com
+
+# Mappings: 
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+  
+  S3TargetDMSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: dms-s3-target-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - dms.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: S3AccessForDMSPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:PutObject
+            - s3:DeleteObject
+            Resource:
+            - !GetAtt S3Bucket.Arn
+            - Fn::Join: ['', [!GetAtt S3Bucket.Arn, "/*"]]
+          - Effect: Allow
+            Action: s3:ListBucket
+            Resource: !GetAtt S3Bucket.Arn
+    DependsOn:
+    - S3Bucket
+
+  # Subnet stack using input parameters
+  DMSReplicationSubnetGroup:
+    Type: AWS::DMS::ReplicationSubnetGroup
+    Properties:
+      ReplicationSubnetGroupDescription: Subnets available for DMS
+      SubnetIds:
+      - Ref: DBPublicSubnet
+      - Ref: DBPrivateSubnet
+
+  DMSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for DMS Instance
+      GroupName: DMS Demo Security Group
+      VpcId: !Ref DBVpc
+
+  DMSReplicationInstance:
+    Type: AWS::DMS::ReplicationInstance
+    Properties:
+      PubliclyAccessible: false
+      ReplicationInstanceClass: dms.t2.small
+      ReplicationInstanceIdentifier: aurora-s3-repinstance-customer360
+      ReplicationSubnetGroupIdentifier:
+        Ref: DMSReplicationSubnetGroup
+      VpcSecurityGroupIds:
+      - Ref: DMSSecurityGroup
+    DependsOn:
+    - DMSReplicationSubnetGroup
+    - DMSSecurityGroup
+
+  MySQLSourceEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointType: source
+      EngineName: mysql
+      #Password: !Join [':', ['{{resolve:secretsmanager', 'customer360-secret', 'SecretString:password}}' ]]
+      Password: password
+      Port: 3306
+      ServerName: !Ref DBEndpoint
+      #Username: !Join [':', ['{{resolve:secretsmanager', 'customer360-secret', 'SecretString:password}}' ]]
+      Username: username
+    DependsOn:
+    - DMSReplicationInstance
+
+  S3TargetEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointType: target
+      EngineName: S3
+      ExtraConnectionAttributes: addColumnName=true
+      S3Settings:
+        BucketName: !Ref S3Bucket
+        ServiceAccessRoleArn: !GetAtt S3TargetDMSRole.Arn
+    DependsOn:
+    - DMSReplicationInstance
+    - S3Bucket
+    - S3TargetDMSRole
+  
+  DMSReplicationTask:
+    Type: AWS::DMS::ReplicationTask
+    Properties:
+      CdcStartTime: 1551058778000
+      MigrationType: full-load-and-cdc
+      ReplicationInstanceArn:
+        Ref: DMSReplicationInstance
+      ReplicationTaskSettings: '{ "Logging" : { "EnableLogging" : true, "LogComponents":
+        [ { "Id" : "SOURCE_UNLOAD", "Severity" : "LOGGER_SEVERITY_DEFAULT" }, { "Id"
+        : "SOURCE_CAPTURE", "Severity" : "LOGGER_SEVERITY_DEFAULT" }, { "Id" : "TARGET_LOAD",
+        "Severity" : "LOGGER_SEVERITY_DEFAULT" }, { "Id" : "TARGET_APPLY", "Severity"
+        : "LOGGER_SEVERITY_DEFAULT" } ] } }'
+      SourceEndpointArn:
+        Ref: MySQLSourceEndpoint
+      TableMappings: '{ "rules": [ { "rule-type" : "selection", "rule-id" : "1", "rule-name"
+        : "1", "object-locator" : { "schema-name" : "employees", "table-name" : "%"
+        }, "rule-action" : "include" } ] }'
+      TargetEndpointArn:
+        Ref: S3TargetEndpoint
+    DependsOn:
+    - MySQLSourceEndpoint
+    - S3TargetEndpoint
+    - DMSReplicationInstance
+
+Outputs:
+  StackName:
+    Value:
+      Ref: AWS::StackName
+  RegionName:
+    Value:
+      Ref: AWS::Region
+#  S3BucketName:
+#    Value:
+#      Ref: S3Bucket
+#      Export:
+#        Name: !Join [ ":", [ !Ref 'BaseVpcStackName', S3BucketCDC ] ]
+
+
+# Outputs:
