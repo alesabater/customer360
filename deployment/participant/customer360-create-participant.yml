@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: ---
+Metadata: 
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    
+    - Label:
+        default: General - Input Parameters
+      Parameters:
+      - BaseVpcStackName
+      - Username
+    
+    ParameterLabels:
+      BaseVpcStackName:
+        default: Parent Stack
+      Username:
+        default: Given Workshop Username
+
+Parameters: 
+  # General - Input Parameters
+  BaseVpcStackName:
+    Type: String
+    Description: Name of Parent Stack for Output resources
+  Username:
+    Type: String
+    Description: New username
+    MinLength: '10'
+    MaxLength: '10'
+    AllowedPattern: "Username[0-5]{1}[0-9]{1}"
+    ConstraintDescription: "The username provided must be of the form: UsernameXX"
+
+Resources: 
+
+  MySecretPassword:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      Name: !Sub ${Username}-customer360
+      Description: Customer360 participant user
+      GenerateSecretString:
+        SecretStringTemplate: !Sub '{"username": "${Username}"}'
+        GenerateStringKey: "password"
+        ExcludeUppercase: true
+        PasswordLength: 8
+        ExcludeCharacters: '"@/\'
+  ParticipantUser:
+    DependsOn:
+    - MySecretPassword
+    Type: AWS::IAM::User
+    Properties:
+      Groups:
+        - - Fn::ImportValue: !Sub '${BaseVpcStackName}:ParticipantGroup'
+      LoginProfile:
+        Password: !Join ['', ['{{resolve:secretsmanager:', !Ref MySecretPassword, ':SecretString:password}}' ]]
+        PasswordResetRequired: false
+      Username: !Ref Username
+  S3CsvBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName:
+        Fn::Join:
+        - "-"
+        - - !Ref Username
+          - 'csv'
+          - !Ref BaseVpcStackName
+          - 'ea-berlin-bootcamp'
+  S3ParquetBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName:
+        Fn::Join:
+        - "-"
+        - - !Ref Username
+          - 'parquet'
+          - !Ref BaseVpcStackName
+          - 'ea-berlin-bootcamp'
+  S3DataLakeAccessPolicy: 
+    Type: "AWS::IAM::Policy"
+    Properties: 
+      PolicyName: S3DataLakeAccessPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action: 
+          - s3:*
+          Resource:
+          - !GetAtt S3CsvBucket.Arn
+          - Fn::Join: ['', [!GetAtt S3CsvBucket.Arn, "/*"]]
+          - !GetAtt S3ParquetBucket.Arn
+          - Fn::Join: ['', [!GetAtt S3ParquetBucket.Arn, "/*"]]
+      Users: 
+      - !Ref 'ParticipantUser'
+
+Outputs:
+  StackName:
+    Value:
+      Ref: AWS::StackName
+  RegionName:
+    Value:
+      Ref: AWS::Region

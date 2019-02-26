@@ -15,6 +15,12 @@ Metadata:
       - ExistsDMSVPCRole
       - ExistsDMSCloudwatchRole
     
+    - Label:
+        default: Tags
+      Parameters:
+      - IsWork
+      - WorkType
+    
     ParameterLabels:
       BaseVpcStackName:
         default: Input Stack
@@ -22,6 +28,10 @@ Metadata:
         default: Y or N if DMS VPC Role exists
       ExistsDMSCloudwatchRole:
         default: Y or N if DMS Cloudwatch Role exists
+      IsWork:
+        default: Work Related Stack?
+      WorkType:
+        default: If Work Related, What Project/Training/Type
 
 Parameters: 
   BaseVpcStackName:
@@ -46,6 +56,18 @@ Parameters:
     MaxLength: '1'
     AllowedPattern: "[YN]"
     ConstraintDescription: Permitted value is Y or N.
+
+  # Tags Parameters
+  IsWork:
+    Type: String  
+    Description: Defines if it is work related activity
+    AllowedValues: [true, false]
+    Default: true
+
+  WorkType:
+    Type: String  
+    Description: Defines the type of work being done
+    Default: customer360
 
 Conditions: 
   NotExistsDMSVPCRole:
@@ -90,3 +112,36 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonDMSVPCManagementRole
       Path: "/"
+  
+  ParticipantGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub participant-${BaseVpcStackName}
+
+  S3SourceCodeAccessPolicy: 
+    Type: "AWS::IAM::Policy"
+    Properties: 
+      PolicyName: MyBucketAccess
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action: 
+          - s3:GetObject
+          Resource:
+          - arn:aws:s3:::eabootcamp-customer360-2019
+          - arn:aws:s3:::eabootcamp-customer360-2019/*
+      Groups: [!Ref 'ParticipantGroup']
+  
+Outputs:
+  StackName:
+    Value:
+      Ref: AWS::StackName
+  RegionName:
+    Value:
+      Ref: AWS::Region
+  ParticipantGroup:
+    Description: A reference to the created VPC ID
+    Value: !Ref ParticipantGroup
+    Export:
+      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', ParticipantGroup ] ]

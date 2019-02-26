@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: ---
+Metadata: 
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    
+    - Label:
+        default: General - Input Parameters
+      Parameters:
+      - BaseVpcStackName 
+    - Label:
+        default: CDC - Resource Parameters
+      Parameters:
+      - ReplicationInstance
+    - Label:
+        default: Tags
+      Parameters:
+      - IsWork
+      - WorkType
+
+
+    ParameterLabels:
+      BaseVpcStackName:
+        default: Base Stack Name
+      ReplicationInstance:
+        default: DMS Instance Type
+      IsWork:
+        default: Work Related Stack?
+      WorkType:
+        default: If Work Related, What Project/Training/Type
+      
+
+Parameters: 
+  # Network - VPC Resource Parameters
+  BaseVpcStackName:
+    Description: A name for vpc that will be prefixed to resource names
+    Type: String
+  # CDC - DMS Resource Parameters
+  ReplicationInstance:
+    Default: dms.t2.small
+    AllowedValues:
+      - dms.t2.micro
+      - dms.t2.small
+      - dms.t2.medium
+      - dms.t2.large
+      - dms.c4.large
+      - dms.c4.xlarge
+      - dms.c4.2xlarge
+      - dms.c4.4xlarge
+    Description: The instance type to use for the replication instance.
+    Type: String
+  # Tags Parameters
+  IsWork:
+    Type: String  
+    Description: Defines if it is work related activity
+  WorkType:
+    Type: String  
+    Description: Defines the type of work being done
+    Default: customer360
+
+
+Resources: 
+  DMSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub 'dms-${BaseVpcStackName}'
+      GroupDescription: 'DMS Security Group'
+      Tags:
+        - Key: Name
+          Value: !Sub 'sgn-dms-${BaseVpcStackName}'
+        - Key: IsWork
+          Value: !Ref IsWork
+        - Key: WorkType
+          Value: !Ref WorkType
+      VpcId: 
+        Fn::ImportValue: !Sub '${BaseVpcStackName}:VpcId'
+  DMSReplicationSubnetGroup:
+    Type: AWS::DMS::ReplicationSubnetGroup
+    Properties:
+      ReplicationSubnetGroupDescription: Subnets available for DMS
+      SubnetIds:
+        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet1'
+        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet2'
+        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet3'
+  DMSReplicationInstance:
+    Type: AWS::DMS::ReplicationInstance
+    Properties:
+      PubliclyAccessible: false
+      ReplicationInstanceClass: !Ref ReplicationInstance
+      ReplicationInstanceIdentifier: !Sub mysql-s3-repinstance-${BaseVpcStackName}
+      ReplicationSubnetGroupIdentifier:
+        Ref: DMSReplicationSubnetGroup
+      VpcSecurityGroupIds:
+      - Ref: DMSSecurityGroup
+    DependsOn:
+    - DMSReplicationSubnetGroup
+    - DMSSecurityGroup
+  MySQLSourceEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointType: source
+      EngineName: mysql
+      #Password: !Join [':', ['{{resolve:secretsmanager', 'customer360-secret', 'SecretString:password}}' ]]
+      Password: password
+      Port: 3306
+      ServerName: Fn::ImportValue: !Sub '${BaseVpcStackName}:DBId'
+      #Username: !Join [':', ['{{resolve:secretsmanager', 'customer360-secret', 'SecretString:password}}' ]]
+      Username: username
+    DependsOn:
+    - DMSReplicationInstance

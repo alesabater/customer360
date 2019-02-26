@@ -63,18 +63,18 @@ Resources:
     Properties:
       ReplicationSubnetGroupDescription: Subnets available for DMS
       SubnetIds:
-      - Fn::ImportValue: !Sub '${BaseVpcStackName}:Private1Subnet'
-      - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet1'
+      - Fn::ImportValue: !Sub '${BaseVpcStackName}:PrivateSubnet'
+      - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet'
   
   DMSSecurityGroupFromStack:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group for DMS Instance
       GroupName: DMS Demo Security Group
-      VpcId: !Sub '${BaseVpcStackName}:VpcId'
+      VpcId: 
+        Fn::ImportValue: !Sub '${BaseVpcStackName}:VpcId'
 
   DMSReplicationInstanceFromStack:
-    Condition: ExistsInputStack
     Type: AWS::DMS::ReplicationInstance
     Properties:
       PubliclyAccessible: false
@@ -89,7 +89,6 @@ Resources:
     - DMSSecurityGroupFromStack
 
   MySQLSourceEndpointFromStack:
-    Condition: ExistsInputStack
     Type: AWS::DMS::Endpoint
     Properties:
       EndpointType: source
@@ -105,7 +104,6 @@ Resources:
     - DMSReplicationInstanceFromStack
   
   S3TargetEndpointFromStack:
-    Condition: ExistsInputStack
     Type: AWS::DMS::Endpoint
     Properties:
       EndpointType: target
@@ -120,12 +118,11 @@ Resources:
     - S3TargetDMSRole
   
   DMSReplicationTaskFromStack:
-    Condition: ExistsInputStack
     Type: AWS::DMS::ReplicationTask
     Properties:
       MigrationType: full-load-and-cdc
       ReplicationInstanceArn:
-        Ref: DMSReplicationInstance
+        Ref: DMSReplicationInstanceFromStack
       ReplicationTaskSettings: '{ "Logging" : { "EnableLogging" : true, "LogComponents":
         [ { "Id" : "SOURCE_UNLOAD", "Severity" : "LOGGER_SEVERITY_DEFAULT" }, { "Id"
         : "SOURCE_CAPTURE", "Severity" : "LOGGER_SEVERITY_DEFAULT" }, { "Id" : "TARGET_LOAD",

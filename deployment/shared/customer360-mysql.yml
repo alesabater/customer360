@@ -124,8 +124,9 @@ Resources:
       DBSubnetGroupName: 'grp-rds-mysql-customer360'
       DBSubnetGroupDescription: 'Subnets group RDS'
       SubnetIds: 
-        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PrivateSubnet'
-        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet'
+        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet1'
+        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet2'
+        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet3'
       Tags:
         - Key: Name
           Value: 'grp-rds-customer360'
@@ -137,7 +138,7 @@ Resources:
   RdsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: 'sgn-rds-mysql-customer360'
+      GroupName: !Sub 'sgn-rds-mysql-${BaseVpcStackName}'
       GroupDescription: 'Enable RDS MySQL access via port 3306'
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -151,7 +152,7 @@ Resources:
             Fn::ImportValue: !Sub '${BaseVpcStackName}:VpcCidr'
       Tags:
         - Key: Name
-          Value: 'grp-rds-customer360'
+          Value: !Sub 'sgn-rds-mysql-${BaseVpcStackName}'
         - Key: IsWork
           Value: !Ref IsWork
         - Key: WorkType
@@ -181,6 +182,7 @@ Resources:
       DBInstanceClass: !Ref 'DBInstanceClass'
       Engine: 'MySQL'
       DBSnapshotIdentifier: !Ref DBSnapshotId
+      #EngineVersion: '5.6.37'
       MultiAZ: !Ref DBMultiAZ
       DBSubnetGroupName: !Ref 'RdsSubnetGroup'
       #MasterUsername: !Join ['', ['{{resolve:secretsmanager:', !Ref MySecretDB, ':SecretString:username}}' ]]
@@ -188,46 +190,16 @@ Resources:
       #MasterUserPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref MySecretDB, ':SecretString:password}}' ]]
       MasterUserPassword: password
       BackupRetentionPeriod: 0
-      DBInstanceIdentifier: 'rds-mysql-customer360'
+      DBInstanceIdentifier: !Sub 'rds-mysql-${BaseVpcStackName}'
       VPCSecurityGroups: 
         - !Ref 'RdsSecurityGroup'
       Tags:
         - Key: Name
-          Value: 'rds-mysql-customer360'
+          Value: !Sub 'rds-mysql-${BaseVpcStackName}'
         - Key: IsWork
           Value: !Ref IsWork
         - Key: WorkType
           Value: !Ref WorkType
-  
-  DMSReplicationSubnetGroup:
-    Type: AWS::DMS::ReplicationSubnetGroup
-    Properties:
-      ReplicationSubnetGroupDescription: Subnets available for DMS
-      SubnetIds:
-        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PrivateSubnet'
-        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet'
-
-  DMSSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security group for DMS Instance
-      GroupName: DMS Demo Security Group
-      VpcId: 
-        Fn::ImportValue: !Sub '${BaseVpcStackName}:VpcId'
-
-  DMSReplicationInstance:
-    Type: AWS::DMS::ReplicationInstance
-    Properties:
-      PubliclyAccessible: false
-      ReplicationInstanceClass: dms.t2.small
-      ReplicationInstanceIdentifier: aurora-s3-repinstance-customer360
-      ReplicationSubnetGroupIdentifier:
-        Ref: DMSReplicationSubnetGroup
-      VpcSecurityGroupIds:
-      - Ref: DMSSecurityGroup
-    DependsOn:
-    - DMSReplicationSubnetGroup
-    - DMSSecurityGroup
 
 # RDS Outputs declaration block
 Outputs:
@@ -241,7 +213,7 @@ Outputs:
 
   RDSAddress:
       Description : Database Identifier
-      Value : !Sub '${RDSMySql.Endpoint.Address}}'
+      Value : !Sub '${RDSMySql.Endpoint.Address}'
       Export:
         Name: !Join [ ":", [ !Ref 'BaseVpcStackName', DBId ] ]  
   
