@@ -56,52 +56,6 @@ Resources:
             Resource: !GetAtt S3Bucket.Arn
     DependsOn:
     - S3Bucket
-
-  # Subnet stack using input parameters
-  DMSReplicationSubnetGroupFromStack:
-    Type: AWS::DMS::ReplicationSubnetGroup
-    Properties:
-      ReplicationSubnetGroupDescription: Subnets available for DMS
-      SubnetIds:
-      - Fn::ImportValue: !Sub '${BaseVpcStackName}:PrivateSubnet'
-      - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet'
-  
-  DMSSecurityGroupFromStack:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security group for DMS Instance
-      GroupName: DMS Demo Security Group
-      VpcId: 
-        Fn::ImportValue: !Sub '${BaseVpcStackName}:VpcId'
-
-  DMSReplicationInstanceFromStack:
-    Type: AWS::DMS::ReplicationInstance
-    Properties:
-      PubliclyAccessible: false
-      ReplicationInstanceClass: dms.t2.small
-      ReplicationInstanceIdentifier: aurora-s3-repinstance-customer360
-      ReplicationSubnetGroupIdentifier:
-        Ref: DMSReplicationSubnetGroupFromStack
-      VpcSecurityGroupIds:
-      - Ref: DMSSecurityGroupFromStack
-    DependsOn:
-    - DMSReplicationSubnetGroupFromStack
-    - DMSSecurityGroupFromStack
-
-  MySQLSourceEndpointFromStack:
-    Type: AWS::DMS::Endpoint
-    Properties:
-      EndpointType: source
-      EngineName: mysql
-      #Password: !Join [':', ['{{resolve:secretsmanager', 'customer360-secret', 'SecretString:password}}' ]]
-      Password: password
-      Port: 3306
-      ServerName: 
-        Fn::ImportValue: !Sub '${BaseVpcStackName}:DBId'
-      #Username: !Join ['', ['{{resolve:secretsmanager:', 'customer360-secret', 'SecretString:username}}' ]]
-      Username: username
-    DependsOn:
-    - DMSReplicationInstanceFromStack
   
   S3TargetEndpointFromStack:
     Type: AWS::DMS::Endpoint
