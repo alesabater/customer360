@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: ---
+Metadata: 
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    
+    - Label:
+        default: General - Input Parameters
+      Parameters:
+      - BaseVpcStackName
+      - Username
+    
+    - Label:
+        default: Catchup - Select Steps to Run
+      Parameters:
+      - RunDMSStep
+      - RunDataCatalogStep
+      - RunCustomer360CreationStep
+    
+    ParameterLabels:
+      BaseVpcStackName:
+        default: Input Stack
+      Username:
+        default: Workshop Username
+      RunDMSStep:
+        default: CDC Step 
+      RunDataCatalogStep:
+        default: Data Catalog Step 
+      RunCustomer360CreationStep:
+        default: Customer360 Create Step
+
+Parameters: 
+  BaseVpcStackName:
+    Type: String
+    Description: VPC Id
+  Username:
+    Type: String
+    Description: New username
+    MinLength: '10'
+    MaxLength: '10'
+    AllowedPattern: "username[0-5]{1}[0-9]{1}"
+    ConstraintDescription: "The username provided must be of the form: UsernameXX"
+  RunDMSStep:
+    Default: N
+    Description: If you wish to run CDC Step (Database Migration) please enter Y, else enter N
+    Type: String
+    MinLength: '1'
+    MaxLength: '1'
+    AllowedPattern: "[YN]"
+    ConstraintDescription: Permitted value is Y or N.
+  RunDataCatalogStep:
+    Default: N
+    Description: If you wish to run Data Catalog Step (Glue Crawlers + Transformation) please enter Y, else enter N
+    Type: String
+    MinLength: '1'
+    MaxLength: '1'
+    AllowedPattern: "[YN]"
+    ConstraintDescription: Permitted value is Y or N.
+  RunCustomer360CreationStep:
+    Default: N
+    Description: If you wish to run Customer360 Creation Step (Transformation) please enter Y, else enter N
+    Type: String
+    MinLength: '1'
+    MaxLength: '1'
+    AllowedPattern: "[YN]"
+    ConstraintDescription: Permitted value is Y or N.
+
+# Mappings: 
+
+Conditions: 
+  DoRunDMSStep:
+    Fn::Equals: [!Ref RunDMSStep, Y]
+  DoRunDataCatalogStep:
+    Fn::Equals: [!Ref RunDataCatalogStep , Y]
+  DoRunCustomer360CreationStep:
+    Fn::Equals: [!Ref RunCustomer360CreationStep , Y]
+
+Resources: 
+  DMSStepS3TargetEndpoint:
+    Condition: DoRunDMSStep
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointIdentifier: !Sub ${Username}-s3-endpoint 
+      EndpointType: target
+      EngineName: S3
+      ExtraConnectionAttributes: addColumnName=true
+      S3Settings: 
+        BucketName: 'asabater-dms-migration'
+          # Fn::ImportValue: !Sub '${BaseVpcStackName}:${Username}:CsvBucket'
+        ServiceAccessRoleArn: 'arn:aws:iam::271342081496:role/Customer360DMSS3AccessRole'
+  DMSStepReplicationTask:
+    Condition: DoRunDMSStep
+    Type: AWS::DMS::ReplicationTask
+    Properties:
+      ReplicationTaskIdentifier: !Sub ${Username}-replication-task 
+      MigrationType: full-load-and-cdc
+      ReplicationInstanceArn: 
+        Fn::ImportValue: !Sub '${BaseVpcStackName}:DMSReplicationInstance'
+      ReplicationTaskSettings: "{ \"Logging\" : { \"EnableLogging\" : true, \"LogComponents\": [ { \"Id\" : \"SOURCE_UNLOAD\", \"Severity\" : \"LOGGER_SEVERITY_DEFAULT\" }, { \"Id\" : \"SOURCE_CAPTURE\", \"Severity\" : \"LOGGER_SEVERITY_DEFAULT\" }, { \"Id\" : \"TARGET_LOAD\", \"Severity\" : \"LOGGER_SEVERITY_DEFAULT\" }, { \"Id\" : \"TARGET_APPLY\", \"Severity\" : \"LOGGER_SEVERITY_DEFAULT\" } ] } }"
+      SourceEndpointArn: 
+        Fn::ImportValue: !Sub '${BaseVpcStackName}:MySQLSourceEndpoint'
+      TableMappings: "{ \"rules\": [ { \"rule-type\" : \"selection\", \"rule-id\" : \"1\", \"rule-name\" : \"1\", \"object-locator\" : { \"schema-name\" : \"employees\", \"table-name\" : \"%\" }, \"rule-action\" : \"include\" } ] }"
+      TargetEndpointArn: !Ref DMSStepS3TargetEndpoint
+      CdcStartTime: 1551229898441
+    DependsOn:
+    - DMSStepS3TargetEndpoint
+
+# Outputs:

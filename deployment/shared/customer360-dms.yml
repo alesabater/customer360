@@ -103,8 +103,21 @@ Resources:
       #Password: !Join [':', ['{{resolve:secretsmanager', 'customer360-secret', 'SecretString:password}}' ]]
       Password: password
       Port: 3306
-      ServerName: Fn::ImportValue: !Sub '${BaseVpcStackName}:DBId'
+      ServerName: 
+        Fn::ImportValue: !Sub '${BaseVpcStackName}:DBId'
       #Username: !Join [':', ['{{resolve:secretsmanager', 'customer360-secret', 'SecretString:password}}' ]]
       Username: username
     DependsOn:
     - DMSReplicationInstance
+
+Outputs:
+  DMSReplicationInstance:
+    Description: A reference to the DMS Replication Instance
+    Value: !Ref DMSReplicationInstance
+    Export:
+      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', DMSReplicationInstance ] ]
+  MySQLSourceEndpoint:
+    Description: A reference to DMS SQL Endpoint
+    Value: !Ref MySQLSourceEndpoint
+    Export:
+      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', MySQLSourceEndpoint ] ]

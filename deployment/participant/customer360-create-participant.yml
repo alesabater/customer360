@@ -21,13 +21,15 @@ Parameters:
   BaseVpcStackName:
     Type: String
     Description: Name of Parent Stack for Output resources
+    Default: vpc-customer360
   Username:
     Type: String
     Description: New username
     MinLength: '10'
     MaxLength: '10'
-    AllowedPattern: "Username[0-5]{1}[0-9]{1}"
+    AllowedPattern: "username[0-5]{1}[0-9]{1}"
     ConstraintDescription: "The username provided must be of the form: UsernameXX"
+    Default: username01
 
 Resources: 
 
@@ -47,12 +49,12 @@ Resources:
     - MySecretPassword
     Type: AWS::IAM::User
     Properties:
-      Groups:
-        - - Fn::ImportValue: !Sub '${BaseVpcStackName}:ParticipantGroup'
+      Groups: 
+        - Fn::ImportValue: !Sub '${BaseVpcStackName}:ParticipantGroup'
       LoginProfile:
         Password: !Join ['', ['{{resolve:secretsmanager:', !Ref MySecretPassword, ':SecretString:password}}' ]]
         PasswordResetRequired: false
-      Username: !Ref Username
+      UserName: !Ref Username
   S3CsvBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -62,7 +64,6 @@ Resources:
         - "-"
         - - !Ref Username
           - 'csv'
-          - !Ref BaseVpcStackName
           - 'ea-berlin-bootcamp'
   S3ParquetBucket:
     Type: AWS::S3::Bucket
@@ -73,9 +74,22 @@ Resources:
         - "-"
         - - !Ref Username
           - 'parquet'
-          - !Ref BaseVpcStackName
+          - 'ea-berlin-bootcamp'
+  S3Customer360Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName:
+        Fn::Join:
+        - "-"
+        - - !Ref Username
+          - 'customer360'
           - 'ea-berlin-bootcamp'
   S3DataLakeAccessPolicy: 
+    DependsOn:
+    - S3CsvBucket
+    - S3ParquetBucket
+    - S3Customer360Bucket
     Type: "AWS::IAM::Policy"
     Properties: 
       PolicyName: S3DataLakeAccessPolicy
@@ -90,6 +104,62 @@ Resources:
           - Fn::Join: ['', [!GetAtt S3CsvBucket.Arn, "/*"]]
           - !GetAtt S3ParquetBucket.Arn
           - Fn::Join: ['', [!GetAtt S3ParquetBucket.Arn, "/*"]]
+          - !GetAtt S3Customer360Bucket.Arn
+          - Fn::Join: ['', [!GetAtt S3Customer360Bucket.Arn, "/*"]]
+      Users: 
+      - !Ref 'ParticipantUser'
+
+  GlueDatabaseCsv:
+    Type: AWS::Glue::Database
+    Properties:
+      # The database is created in the Data Catalog for your account
+      CatalogId: !Ref AWS::AccountId   
+      DatabaseInput:
+        # The name of the database is defined in the Parameters section above
+        Name: !Sub ${Username}_csv_db
+        Description: Database to store imported SmartPower Database as CSV
+        #Parameters: Leave AWS database parameters blank
+  
+  GlueDatabaseParquet:
+    Type: AWS::Glue::Database
+    Properties:
+      # The database is created in the Data Catalog for your account
+      CatalogId: !Ref AWS::AccountId   
+      DatabaseInput:
+        # The name of the database is defined in the Parameters section above
+        Name: !Sub ${Username}_parquet_db
+        Description: Database to store imported SmartPower Database as Parquet
+        #Parameters: Leave AWS database parameters blank
+      
+  GlueDatabaseCustomer360:
+    Type: AWS::Glue::Database
+    Properties:
+      # The database is created in the Data Catalog for your account
+      CatalogId: !Ref AWS::AccountId   
+      DatabaseInput:
+        # The name of the database is defined in the Parameters section above
+        Name: !Sub ${Username}_customer360_db
+        Description: Database to store Customer360
+        #Parameters: Leave AWS database parameters blank
+
+  GlueDataLakeAccessPolicy: 
+    DependsOn:
+    - GlueDatabaseCsv
+    - GlueDatabaseParquet
+    - GlueDatabaseCustomer360
+    Type: "AWS::IAM::Policy"
+    Properties: 
+      PolicyName: GlueDataLakeAccessPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action: 
+          - glue:*
+          Resource:
+          - Fn::Sub: "arn:aws:glue::${AWS::Region}:${AWS::AccountId}:database/${GlueDatabaseCsv}"
+          - Fn::Sub: "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:database/${GlueDatabaseParquet}"
+          - Fn::Sub: "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:database/${GlueDatabaseCustomer360}"
       Users: 
       - !Ref 'ParticipantUser'
 
@@ -100,3 +170,33 @@ Outputs:
   RegionName:
     Value:
       Ref: AWS::Region
+  S3CsvBucket:
+    Description: A reference to the created VPC ID
+    Value: !Ref S3CsvBucket
+    Export:
+      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', !Ref Username, CsvBucket ] ]
+  S3ParquetBucket:
+    Description: A reference to the created VPC ID
+    Value: !Ref S3ParquetBucket
+    Export:
+      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', !Ref Username, ParquetBucket ] ]
+  S3Customer360Bucket:
+    Description: A reference to the created VPC ID
+    Value: !Ref S3Customer360Bucket
+    Export:
+      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', !Ref Username, Customer360Bucket ] ]
+  GlueDatabaseCsv:
+    Description: A reference to the created VPC ID
+    Value: !Ref GlueDatabaseCsv
+    Export:
+      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', !Ref Username, CsvDatabase ] ]
+  GlueDatabaseParquet:
+    Description: A reference to the created VPC ID
+    Value: !Ref GlueDatabaseParquet
+    Export:
+      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', !Ref Username, ParquetDatabase ] ]
+  GlueDatabaseCustomer360:
+    Description: A reference to the created VPC ID
+    Value: !Ref GlueDatabaseCustomer360
+    Export:
+      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', !Ref Username, Customer360Database ] ]

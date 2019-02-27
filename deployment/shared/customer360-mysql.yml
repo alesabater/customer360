@@ -189,7 +189,7 @@ Resources:
       MasterUsername: username
       #MasterUserPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref MySecretDB, ':SecretString:password}}' ]]
       MasterUserPassword: password
-      BackupRetentionPeriod: 0
+      BackupRetentionPeriod: 2
       DBInstanceIdentifier: !Sub 'rds-mysql-${BaseVpcStackName}'
       VPCSecurityGroups: 
         - !Ref 'RdsSecurityGroup'
