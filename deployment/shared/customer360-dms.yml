@@ -1,29 +1,30 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: ---
+Description: |
+  Customer360 CDC deployment CloudFormation template.
+  It deploys:
+    - DMS Security Group
+    - DMS Subnet Group
+    - DMS Replication Instance
+    - DMS MySQL Endpoint
+
 Metadata: 
   AWS::CloudFormation::Interface:
-    ParameterGroups:
-    
-    - Label:
-        default: General - Input Parameters
+    ParameterGroups: 
+    - Label: 
+        default: Environment - General Environment Parameters
       Parameters:
-      - BaseVpcStackName 
-    - Label:
-        default: CDC - Resource Parameters
-      Parameters:
-      - ReplicationInstance
+      - EnvironmentName
+      - EnvironmentSize
     - Label:
         default: Tags
       Parameters:
       - IsWork
       - WorkType
-
-
     ParameterLabels:
-      BaseVpcStackName:
-        default: Base Stack Name
-      ReplicationInstance:
-        default: DMS Instance Type
+      EnvironmentName: 
+        default: Environment Name
+      EnvironmentSize:
+        default: Environment Size
       IsWork:
         default: Work Related Stack?
       WorkType:
@@ -31,25 +32,19 @@ Metadata:
       
 
 Parameters: 
-  # Network - VPC Resource Parameters
-  BaseVpcStackName:
-    Description: A name for vpc that will be prefixed to resource names
+  EnvironmentName:
+    Description: A name for the environment that will be prefixed to resource names
     Type: String
-  # CDC - DMS Resource Parameters
-  ReplicationInstance:
-    Default: dms.t2.small
+    Default: customer360
+  EnvironmentSize:
+    Type: String
+    Default: SMALL
     AllowedValues:
-      - dms.t2.micro
-      - dms.t2.small
-      - dms.t2.medium
-      - dms.t2.large
-      - dms.c4.large
-      - dms.c4.xlarge
-      - dms.c4.2xlarge
-      - dms.c4.4xlarge
-    Description: The instance type to use for the replication instance.
-    Type: String
-  # Tags Parameters
+      - MICRO
+      - SMALL
+      - MEDIUM
+      - LARGE
+    Description: Select Environment Size (XS,S,M,L)
   IsWork:
     Type: String  
     Description: Defines if it is work related activity
@@ -58,36 +53,46 @@ Parameters:
     Description: Defines the type of work being done
     Default: customer360
 
+Mappings:  
+  InstanceSize:
+    MICRO: 
+      "DMS" : "dms.t2.micro"
+    SMALL:
+      "DMS" : "dms.t2.small"
+    MEDIUM:
+      "DMS" : "dms.t2.medium"
+    LARGE:
+      "DMS" : "dms.t2.large"
 
 Resources: 
   DMSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub 'dms-${BaseVpcStackName}'
+      GroupName: !Sub '${EnvironmentName}-dms-sg'
       GroupDescription: 'DMS Security Group'
       Tags:
         - Key: Name
-          Value: !Sub 'sgn-dms-${BaseVpcStackName}'
+          Value: !Sub '${EnvironmentName}-dms-sg'
         - Key: IsWork
           Value: !Ref IsWork
         - Key: WorkType
           Value: !Ref WorkType
       VpcId: 
-        Fn::ImportValue: !Sub '${BaseVpcStackName}:VpcId'
+        Fn::ImportValue: !Sub '${EnvironmentName}:VpcId'
   DMSReplicationSubnetGroup:
     Type: AWS::DMS::ReplicationSubnetGroup
     Properties:
       ReplicationSubnetGroupDescription: Subnets available for DMS
       SubnetIds:
-        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet1'
-        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet2'
-        - Fn::ImportValue: !Sub '${BaseVpcStackName}:PublicSubnet3'
+        - Fn::ImportValue: !Sub '${EnvironmentName}:PublicSubnet1'
+        - Fn::ImportValue: !Sub '${EnvironmentName}:PublicSubnet2'
+        - Fn::ImportValue: !Sub '${EnvironmentName}:PublicSubnet3'
   DMSReplicationInstance:
     Type: AWS::DMS::ReplicationInstance
     Properties:
       PubliclyAccessible: false
-      ReplicationInstanceClass: !Ref ReplicationInstance
-      ReplicationInstanceIdentifier: !Sub mysql-s3-repinstance-${BaseVpcStackName}
+      ReplicationInstanceClass: !FindInMap [InstanceSize, !Ref EnvironmentSize, DB]
+      ReplicationInstanceIdentifier: !Sub ${EnvironmentName}-dms-instance
       ReplicationSubnetGroupIdentifier:
         Ref: DMSReplicationSubnetGroup
       VpcSecurityGroupIds:
@@ -100,13 +105,23 @@ Resources:
     Properties:
       EndpointType: source
       EngineName: mysql
-      #Password: !Join [':', ['{{resolve:secretsmanager', 'customer360-secret', 'SecretString:password}}' ]]
-      Password: password
+      Password: 
+        Fn::Join: 
+          - ':' 
+          - - '{{resolve:secretsmanager'
+            - Fn::ImportValue: !Sub '${EnvironmentName}:MySQLSecret'
+            - 'SecretString:password}}'
+      #Password: password
       Port: 3306
       ServerName: 
-        Fn::ImportValue: !Sub '${BaseVpcStackName}:DBId'
-      #Username: !Join [':', ['{{resolve:secretsmanager', 'customer360-secret', 'SecretString:password}}' ]]
-      Username: username
+        Fn::ImportValue: !Sub '${EnvironmentName}:DBId'
+      Username: 
+        Fn::Join: 
+          - ':' 
+          - - '{{resolve:secretsmanager'
+            - Fn::ImportValue: !Sub '${EnvironmentName}:MySQLSecret'
+            - 'SecretString:username}}'
+      #Username: username
     DependsOn:
     - DMSReplicationInstance
 
@@ -115,9 +130,9 @@ Outputs:
     Description: A reference to the DMS Replication Instance
     Value: !Ref DMSReplicationInstance
     Export:
-      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', DMSReplicationInstance ] ]
+      Name: !Join [ ":", [ !Ref 'EnvironmentName', DMSReplicationInstance ] ]
   MySQLSourceEndpoint:
     Description: A reference to DMS SQL Endpoint
     Value: !Ref MySQLSourceEndpoint
     Export:
-      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', MySQLSourceEndpoint ] ]
+      Name: !Join [ ":", [ !Ref 'EnvironmentName', MySQLSourceEndpoint ] ]

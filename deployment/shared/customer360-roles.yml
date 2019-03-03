@@ -1,43 +1,46 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: ---
+Description: |
+  Customer360 Roles deployment CloudFormation template.
+  It deploys:
+    - dms-vpc-role Role 
+    - dms-cloudwatch-logs-role Role
+    - Participant Group
+    - S3 Access Policy for S3 bucket containing source code associated to the participant group
+
 Metadata: 
   AWS::CloudFormation::Interface:
     ParameterGroups:  
-
-    - Label:
-        default: Automation - Input Parameters 
+    - Label: 
+        default: Environment - General Environment Parameters
       Parameters:
-      - BaseVpcStackName
-
+      - EnvironmentName
     - Label:
-        default: Security - Roles status
+        default: Security - Roles Creation
       Parameters:
       - ExistsDMSVPCRole
       - ExistsDMSCloudwatchRole
-    
     - Label:
         default: Tags
       Parameters:
       - IsWork
       - WorkType
-    
     ParameterLabels:
-      BaseVpcStackName:
-        default: Input Stack
+      EnvironmentName: 
+        default: Environment Name
       ExistsDMSVPCRole:
         default: Y or N if DMS VPC Role exists
       ExistsDMSCloudwatchRole:
         default: Y or N if DMS Cloudwatch Role exists
       IsWork:
-        default: Work Related Stack?
+        default: Work Related
       WorkType:
-        default: If Work Related, What Project/Training/Type
+        default: Work Type
 
 Parameters: 
-  BaseVpcStackName:
+  EnvironmentName:
+    Description: A name for the environment that will be prefixed to resource names
     Type: String
-    Description: VPC Id
-
+    Default: customer360
   ExistsDMSVPCRole:
     Default: N
     Description: If the dms-vpc-role exists in your account, please enter Y, else enter N
@@ -46,7 +49,6 @@ Parameters:
     MaxLength: '1'
     AllowedPattern: "[YN]"
     ConstraintDescription: Permitted value is Y or N.
-  
   ExistsDMSCloudwatchRole:
     Default: N
     Description: If the dms-cloudwatch-logs-role exists in your account, please enter
@@ -56,14 +58,11 @@ Parameters:
     MaxLength: '1'
     AllowedPattern: "[YN]"
     ConstraintDescription: Permitted value is Y or N.
-
-  # Tags Parameters
   IsWork:
     Type: String  
     Description: Defines if it is work related activity
     AllowedValues: [true, false]
     Default: true
-
   WorkType:
     Type: String  
     Description: Defines the type of work being done
@@ -76,7 +75,6 @@ Conditions:
     Fn::Equals: [Ref: ExistsDMSCloudwatchRole, N]
 
 Resources:
-
   DMSCloudwatchRole:
     Type: AWS::IAM::Role
     Condition: NotExistsDMSCloudwatchRole
@@ -116,7 +114,7 @@ Resources:
   ParticipantGroup:
     Type: AWS::IAM::Group
     Properties:
-      GroupName: !Sub participant-${BaseVpcStackName}
+      GroupName: !Sub ${EnvironmentName}-participant
 
   S3SourceCodeAccessPolicy: 
     Type: "AWS::IAM::Policy"
@@ -144,4 +142,4 @@ Outputs:
     Description: A reference to the created VPC ID
     Value: !Ref ParticipantGroup
     Export:
-      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', ParticipantGroup ] ]
+      Name: !Join [ ":", [ !Ref 'EnvironmentName', ParticipantGroup ] ]

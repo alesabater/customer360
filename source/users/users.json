@@ -29,7 +29,7 @@
         "username27"
     ],
     "userDetails": {
-        "group": "mygroup",
+        "group": "customer360-participant",
         "DataStagingAreas": ["landing","trusted","refined"],
         "createS3Buckets": true,
         "S3NamingConvention": "customer360-{username}-{area}-eaberlin",

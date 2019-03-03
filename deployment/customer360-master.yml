@@ -12,11 +12,84 @@ Description: |
     - Change Data Capture needed infrastructure. Replication Instance for DMS
       and DMS MySQL endpoint
 
+Metadata: 
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label: 
+        default: Environment - General Environment Parameters
+      Parameters:
+      - EnvironmentName
+      - EnvironmentSize
+
+    - Label:
+        default: Network - VPC Resource Parameters
+      Parameters:
+      - VpcCIDR
+      - PublicSubnet1Cidr
+      - PublicSubnet2Cidr
+      - PublicSubnet3Cidr
+    
+    - Label:
+        default: Storage - MySQL Resource Parameters
+      Parameters:
+      - DBMasterUser
+      - DBSnapshotId
+      - DBMultiAZ
+      - DBAllocatedStorage
+
+    - Label:
+        default: Roles - IAM Resource Parameters
+      Parameters:
+      - ExistsRoles
+
+    - Label:
+        default: Tags
+      Parameters:
+      - IsWork
+      - WorkType
+    
+    ParameterLabels:
+      EnvironmentName: 
+        default: Environment Name
+      EnvironmentSize:
+        default: Environment Size
+      VpcCIDR:
+        default: VPC CIDR
+      PublicSubnet1Cidr:
+        default: CIDR for Public Subnet 1
+      PublicSubnet2Cidr:
+        default: CIDR for Public Subnet 2
+      PublicSubnet3Cidr:
+        default: CIDR for Public Subnet 3
+      DBMasterUser:
+        default: Admin User for MySQL Database
+      DBSnapshotId:
+        default: Snapshot ID
+      DBMultiAZ:
+        default: Multi AZ option
+      DBAllocatedStorage:
+        default: Storage for MySQL Database
+      ExistsRoles:
+        default: Create Roles
+      IsWork:
+        default: Work Related
+      WorkType:
+        default: Work Type
+
 Parameters: 
   EnvironmentName:
-    Description: A name for vpc that will be prefixed to resource names
+    Description: A name for the environment that will be prefixed to resource names
     Type: String
-    Default: vpc-customer360
+    Default: customer360
+  EnvironmentSize:
+    Type: String
+    Default: SMALL
+    AllowedValues:
+      - MICRO
+      - SMALL
+      - MEDIUM
+      - LARGE
+    Description: Select Environment Size (XS,S,M,L)
 
   VpcCIDR:
     Description: Please enter the IP range (CIDR notation) for this VPC
@@ -55,21 +128,17 @@ Parameters:
     Default: username
     AllowedPattern: '([a-zA-Z0-9\-]){1,16}'
     ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
-
-  DBInstanceClass:
-    Type: String
-    Default: db.t2.small
-    AllowedValues:
-    - db.t2.small
-    - db.t2.medium
-    - db.t2.large
       
   DBSnapshotId:
     Type: String
+    Description: Snapshot ARN to use for MySQL database
     Default: 'arn:aws:rds:eu-west-1:271342081496:snapshot:clouderaprep-final-snapshot'
+    AllowedPattern: 'arn:aws:rds:.*'
+    ConstraintDescription: Must be a valid ARN string.
   
   DBMultiAZ:
     Type: String
+    Description: Multiple Availability Zone deployment.
     Default: false
     AllowedValues: 
     - true
@@ -77,6 +146,7 @@ Parameters:
 
   DBAllocatedStorage:
     Type: String
+    Description: Allocated storage for MySQL Database
     Default: 20
     AllowedPattern: '([0-9]){2,4}'
     ConstraintDescription: must be an integer (20GB-16TB).
@@ -91,21 +161,6 @@ Parameters:
     AllowedPattern: "[YN]"
     ConstraintDescription: Permitted value is Y or N.
 
-  # CDC - Database Migration Services Parameters
-  DMSReplicationInstance:
-    Default: dms.t2.small
-    AllowedValues:
-      - dms.t2.micro
-      - dms.t2.small
-      - dms.t2.medium
-      - dms.t2.large
-      - dms.c4.large
-      - dms.c4.xlarge
-      - dms.c4.2xlarge
-      - dms.c4.4xlarge
-    Description: The instance type to use for the replication instance.
-    Type: String
-
   # Tags Parameters
   IsWork:
     Type: String  
@@ -117,74 +172,6 @@ Parameters:
     Type: String  
     Description: Defines the type of work being done
     Default: customer360
-
-Metadata: 
-  AWS::CloudFormation::Interface:
-    ParameterGroups:
-
-    - Label:
-        default: Network - VPC Resource Parameters
-      Parameters:
-      - BaseVpcStackName
-      - VpcCIDR
-      - PublicSubnet1Cidr
-      - PublicSubnet2Cidr
-      - PublicSubnet3Cidr
-    
-    - Label:
-        default: Storage - MySQL Resource Parameters
-      Parameters:
-      - DBMasterUser
-      - DBInstanceClass
-      - DBSnapshotId
-      - DBMultiAZ
-      - DBAllocatedStorage
-    
-    - Label:
-        default: CDC - Database Migration Services Parameters
-      Parameters:
-      - DMSReplicationInstance
-
-    - Label:
-        default: IAM - Access related Parameters
-      Parameters:
-      - ExistsRoles
-
-    - Label:
-        default: Tags
-      Parameters:
-      - IsWork
-      - WorkType
-    
-    ParameterLabels:
-      BaseVpcStackName:
-        default: VPC Name
-      VpcCIDR:
-        default: VPC CIDR
-      PublicSubnet1Cidr:
-        default: CIDR for Public Subnet 1
-      PublicSubnet2Cidr:
-        default: CIDR for Public Subnet 2
-      PublicSubnet3Cidr:
-        default: CIDR for Public Subnet 3
-      DBMasterUser:
-        default: Admin User for MySQL Database
-      DBInstanceClass:
-        default: Instance Type for MySQL Database
-      DBSnapshotId:
-        default: Snapshot ID
-      DBMultiAZ:
-        default: Multi AZ option
-      DBAllocatedStorage:
-        default: Storage for MySQL Database
-      DMSReplicationInstance:
-        default: DMS Instance Type
-      ExistsRoles:
-        default: Y or N if DMS Cloudwatch Role exists
-      IsWork:
-        default: Work Related Stack?
-      WorkType:
-        default: If Work Related, What Project/Training/Type
 
 Mappings:
   SourceCode:
@@ -198,7 +185,7 @@ Resources:
     Properties:
       TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !FindInMap ["SourceCode", "General", "S3Bucket"], !FindInMap ["SourceCode", "General", "KeyPrefix"], "customer360-network.yml"]]
       Parameters:
-        BaseVpcStackName: !Ref BaseVpcStackName
+        EnvironmentName: !Ref EnvironmentName
         VpcCIDR: !Ref VpcCIDR
         PublicSubnet1Cidr: !Ref PublicSubnet1Cidr
         PublicSubnet2Cidr: !Ref PublicSubnet2Cidr
@@ -211,8 +198,8 @@ Resources:
     Properties:
       TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !FindInMap ["SourceCode", "General", "S3Bucket"], !FindInMap ["SourceCode", "General", "KeyPrefix"], "customer360-mysql.yml"]]
       Parameters:
-        BaseVpcStackName: !Ref BaseVpcStackName
-        DBInstanceClass: !Ref DBInstanceClass
+        EnvironmentName: !Ref EnvironmentName
+        EnvironmentSize: !Ref EnvironmentSize
         DBSnapshotId: !Ref DBSnapshotId
         DBMultiAZ: !Ref DBMultiAZ
         DBAllocatedStorage: !Ref DBAllocatedStorage
@@ -227,7 +214,7 @@ Resources:
     Properties:
       TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !FindInMap ["SourceCode", "General", "S3Bucket"], !FindInMap ["SourceCode", "General", "KeyPrefix"], "customer360-roles.yml"]]
       Parameters:
-        BaseVpcStackName: !Ref BaseVpcStackName
+        EnvironmentName: !Ref EnvironmentName
         ExistsDMSVPCRole: !Ref ExistsRoles
         ExistsDMSCloudwatchRole: !Ref ExistsRoles
         IsWork: !Ref IsWork
@@ -238,8 +225,8 @@ Resources:
     Properties:
       TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !FindInMap ["SourceCode", "General", "S3Bucket"], !FindInMap ["SourceCode", "General", "KeyPrefix"], "customer360-dms.yml"]]
       Parameters:
-        BaseVpcStackName: !Ref BaseVpcStackName
-        ReplicationInstance: !Ref DMSReplicationInstance
+        EnvironmentName: !Ref EnvironmentName
+        EnvironmentSize: !Ref EnvironmentSize
         IsWork: !Ref IsWork
         WorkType: !Ref WorkType
     DependsOn:
