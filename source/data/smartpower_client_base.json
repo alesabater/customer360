@@ -1,0 +1,24 @@
+{
+    "BusinessPartners": 10,
+    "BusinessPartnerFlow": [
+        {
+            "Contracts": 2,
+            "tenure": "5y",
+            "switch": 0,
+            "credit_status": 0.3
+        },
+        {
+            "Contracts": 5,
+            "tenure": "2y",
+            "switch": 0,
+            "credit_status": 0.3
+        },
+        {
+            "Contracts": 3,
+            "tenure": "7y",
+            "switch": 0,
+            "credit_status": 0.3
+        }
+    ],
+    "BusinessPartnerDistribution": [0.33,0.33,0.33]
+}

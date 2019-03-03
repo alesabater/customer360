@@ -1,1 +1,4 @@
 boto3==1.9.1
+Faker
+factory_boy
+numpy

@@ -91,7 +91,7 @@ Resources:
     Type: AWS::DMS::ReplicationInstance
     Properties:
       PubliclyAccessible: false
-      ReplicationInstanceClass: !FindInMap [InstanceSize, !Ref EnvironmentSize, DB]
+      ReplicationInstanceClass: !FindInMap [InstanceSize, !Ref EnvironmentSize, DMS]
       ReplicationInstanceIdentifier: !Sub ${EnvironmentName}-dms-instance
       ReplicationSubnetGroupIdentifier:
         Ref: DMSReplicationSubnetGroup

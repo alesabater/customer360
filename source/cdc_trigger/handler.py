@@ -22,7 +22,7 @@ def lambda_handler(event, context):
     
     # Validate input params format
     arn_param = cr_params['ReplicationTaskArn']
-    arn_param_match = re.match(r'arn:aws:dms:(.*)', arn_param)
+    arn_param_match = re.match(r"arn:aws:dms:(.*)", arn_param)
     
     if arn_param_match is None:
         arn_example = "arn:aws:dms:us-east-1:123456789012:task:2PVREMWNPGYJCVU2IBPTOYTIV4"

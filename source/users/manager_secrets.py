@@ -19,17 +19,6 @@ def get_password(client):
     RequireEachIncludedType=True
 )
 
-# Manual forced deletion for secret
-# 
-# def delete_secret(client):
-#     client.restore_secret(
-#         SecretId='customer360-username01'
-#     )
-#     client.delete_secret(
-#     SecretId='customer360-username01',
-#     ForceDeleteWithoutRecovery=True
-# )
-
 def create_secret_string(password, secret_name):
     secret_string = {}
     secret_string['username'] = secret_name
