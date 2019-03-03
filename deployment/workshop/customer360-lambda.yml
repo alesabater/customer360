@@ -1,0 +1,6 @@
+Resources: 
+  DMSStepStartReplicationTask:
+    Type: Custom::LambdaStartRepliaction
+    Properties:
+      ServiceToken: 'arn:aws:lambda:eu-west-1:271342081496:function:cdc_trigger'
+      ReplicationTaskArn: 'arn:aws:dms:eu-west-1:271342081496:task:FM6AOSSYBNMFUYOB7LHHXZQOFM'

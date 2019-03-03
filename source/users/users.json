@@ -1,0 +1,39 @@
+{
+    "users": [
+        "username01",
+        "username02",
+        "username03",
+        "username04",
+        "username05",
+        "username06",
+        "username07",
+        "username08",
+        "username09",
+        "username10",
+        "username11",
+        "username12",
+        "username13",
+        "username14",
+        "username15",
+        "username16",
+        "username17",
+        "username18",
+        "username19",
+        "username20",
+        "username21",
+        "username22",
+        "username23",
+        "username24",
+        "username25",
+        "username26",
+        "username27"
+    ],
+    "userDetails": {
+        "group": "mygroup",
+        "DataStagingAreas": ["landing","trusted","refined"],
+        "createS3Buckets": true,
+        "S3NamingConvention": "customer360-{username}-{area}-eaberlin",
+        "createGlueDatabases": true,
+        "GlueNamingConvention": "{username}_{area}_db"
+    }
+}

@@ -101,8 +101,19 @@ Resources:
         Fn::ImportValue: !Sub '${BaseVpcStackName}:MySQLSourceEndpoint'
       TableMappings: "{ \"rules\": [ { \"rule-type\" : \"selection\", \"rule-id\" : \"1\", \"rule-name\" : \"1\", \"object-locator\" : { \"schema-name\" : \"employees\", \"table-name\" : \"%\" }, \"rule-action\" : \"include\" } ] }"
       TargetEndpointArn: !Ref DMSStepS3TargetEndpoint
-      CdcStartTime: 1551229898441
     DependsOn:
     - DMSStepS3TargetEndpoint
+  DMSStepStartReplicationTask:
+    Condition: DoRunDMSStep
+    Type: Custom::LambdaStartRepliaction
+    Properties:
+      ServiceToken: 'arn:aws:lambda:eu-west-1:271342081496:function:cdc_trigger'
+      ReplicationTaskArn: !Ref DMSStepReplicationTask
 
-# Outputs:
+#Outputs:
+#  ReplicationTaskName:
+#    Description: A reference to DMS SQL Endpoint
+#    Value: !GetAtt DMSStepStartReplicationTask.TaskName
+#    Export:
+#      Name: !Join [ ":", [ !Ref 'BaseVpcStackName', DMSReplicationTaskName ] ]
+    

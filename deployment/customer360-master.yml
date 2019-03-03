@@ -1,14 +1,19 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: "CloudFormation template for deployment of shared infrastructure for Customer360.
-              deploys the following components:
-              - VPC and its components
-              - MySQL Database
-              - Change Data Capture to S3"
+Description: |
+  Master Customer360 CloudFormation template.
+  It deploys:
+    - Infrastructure per the customer360 Reference Architecture Diagram 
+      (S3 bucket path goes here)
+    - VPC network with 3 public subnets and internet gateway
+    - MySQL 5.6 RDS database using provided snapshot with port 3306 
+      publicly accessible and ParameterGroup for DMS compatibility 
+    - Roles for DMS -> dms-vpc-role, dms-cloudwatch-logs-role
+    - Change Data Capture needed infrastructure. Replication Instance for DMS
+      and DMS MySQL endpoint
 
 Parameters: 
-  # Network - VPC Resource Parameters
-  BaseVpcStackName:
+  EnvironmentName:
     Description: A name for vpc that will be prefixed to resource names
     Type: String
     Default: vpc-customer360
@@ -40,27 +45,6 @@ Parameters:
     Default: 10.14.18.0/24
     AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/8-24 
-  
-  PrivateSubnet1Cidr:
-    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
-    Type: String
-    Default: 10.14.19.0/24
-    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
-    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/8-24
-  
-  PrivateSubnet2Cidr:
-    Description: Please enter the IP range (CIDR notation) for the private subnet in the second Availability Zone
-    Type: String
-    Default: 10.14.20.0/24
-    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
-    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/8-24
-  
-  PrivateSubnet3Cidr:
-    Description: Please enter the IP range (CIDR notation) for the private subnet in the third Availability Zone
-    Type: String
-    Default: 10.14.21.0/24
-    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
-    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/8-24
   
   # Storage - MySQL Resource Parameters  
   DBMasterUser:
@@ -146,9 +130,6 @@ Metadata:
       - PublicSubnet1Cidr
       - PublicSubnet2Cidr
       - PublicSubnet3Cidr
-      - PrivateSubnet1Cidr
-      - PrivateSubnet2Cidr
-      - PrivateSubnet3Cidr
     
     - Label:
         default: Storage - MySQL Resource Parameters
@@ -186,12 +167,6 @@ Metadata:
         default: CIDR for Public Subnet 2
       PublicSubnet3Cidr:
         default: CIDR for Public Subnet 3
-      PrivateSubnet1Cidr:
-        default: CIDR for Private Subnet 1
-      PrivateSubnet2Cidr:
-        default: CIDR for Private Subnet 2
-      PrivateSubnet3Cidr:
-        default: CIDR for Private Subnet 3
       DBMasterUser:
         default: Admin User for MySQL Database
       DBInstanceClass:
@@ -228,9 +203,6 @@ Resources:
         PublicSubnet1Cidr: !Ref PublicSubnet1Cidr
         PublicSubnet2Cidr: !Ref PublicSubnet2Cidr
         PublicSubnet3Cidr: !Ref PublicSubnet3Cidr
-        PrivateSubnet1Cidr: !Ref PrivateSubnet1Cidr
-        PrivateSubnet2Cidr: !Ref PrivateSubnet2Cidr
-        PrivateSubnet3Cidr: !Ref PrivateSubnet3Cidr
         IsWork: !Ref IsWork
         WorkType: !Ref WorkType
   
