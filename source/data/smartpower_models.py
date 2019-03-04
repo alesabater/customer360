@@ -12,14 +12,13 @@ class BusinessPartner:
         self.address = address
 
     def __str__(self):
-        return '({bn},{n},{ln},{e},{tlf},{b},{s},{a})'.format(
+        return '({bn},"{n}","{ln}","{e}","{tlf}","{b}","{a}")'.format(
             bn=self.business_no, 
             n=self.name, 
             ln=self.last_name, 
             e=self.tlf, 
             tlf=self.email, 
-            b=self.birth.strftime('%Y-%m-%d'), 
-            s=self.customer_start.strftime('%Y-%m-%d'), 
+            b=self.birth.strftime('%Y-%m-%d'),  
             a=self.address)
 
 class Switch:
@@ -48,27 +47,54 @@ class Contract:
         self.ebill_flag = ebill_flag
     
     def __str__(self):
-        return '({bn},{cn},{t},{s},{e},{eb})'.format(
+        return '({bn},{cn},"{t}","{s}","{e}",{eb})'.format(
             bn=self.business_no, 
             cn=self.contract_no, 
             t=self.contract_type, 
-            s=self.start_date, 
+            s=self.start_date.strftime('%Y-%m-%d'), 
             e=self.end_date.strftime('%Y-%m-%d'), 
             eb=self.ebill_flag)
-#
-#
-#
-#
-#import factory
-#
-#class User:
-#    def __init__(self, name, email):
-#        self.name = name
-#        self.email = email
-#
-#class UserFactory(factory.Factory):
-#    name = factory.Faker('name')
-#    email = factory.Faker('email')
-#
-#    class Meta:
-#        model = User
+
+class Bill:
+    def __init__(self, business_no, contract_no, billing_no, billing_date, billing_type, amount):
+        self.business_no = business_no
+        self.contract_no = contract_no
+        self.billing_no = billing_no
+        self.billing_date = billing_date
+        self.billing_type = billing_type
+        self.amount = amount
+    
+    def __str__(self):
+        return '({bn},{cn},{t},"{s}","{e}",{eb})'.format(
+            bn=self.business_no, 
+            cn=self.contract_no, 
+            t=self.billing_no, 
+            s=self.billing_date.strftime('%Y-%m-%d'), 
+            e=self.billing_type, 
+            eb=self.amount)
+    
+    def __lt__(self, other):
+         return self.billing_date < other.billing_date
+
+class Payment:
+    def __init__(self, business_no, contract_no, billing_no, payment_no, payment_date, payment_amount, payment_type):
+        self.business_no = business_no
+        self.contract_no = contract_no
+        self.billing_no = billing_no
+        self.payment_no = payment_no
+        self.payment_date = payment_date
+        self.payment_amount = payment_amount
+        self.payment_type = payment_type
+    
+    def __str__(self):
+        return '({bn},{cn},{t},{s},"{e}",{eb},"{x}")'.format(
+            bn=self.business_no, 
+            cn=self.contract_no, 
+            t=self.billing_no, 
+            s=self.payment_no, 
+            e=self.payment_date.strftime('%Y-%m-%d'), 
+            eb=self.payment_amount,
+            x=self.payment_type)
+    
+    def __lt__(self, other):
+         return self.payment_date < other.payment_date

@@ -1,14 +1,19 @@
 {
-    "BusinessPartners": 10,
+    "BusinessPartners": 5,
     "BusinessPartnerFlow": [
         {
-            "Contracts": 2,
+            "Contracts": 20,
             "tenure": "5y",
             "switch": 0,
-            "credit_status": 0.3
+            "credit_status": 0.3,
+            "PaymentType" : ["Direct Debit", "Bank Deposit"],
+            "PaymentProb" : [0.9, 0.1],
+            "PaymentDelay" : 30,
+            "InDebt" : true,
+            "InDebtDays" : 540
         },
         {
-            "Contracts": 5,
+            "Contracts": 1,
             "tenure": "2y",
             "switch": 0,
             "credit_status": 0.3
@@ -20,5 +25,5 @@
             "credit_status": 0.3
         }
     ],
-    "BusinessPartnerDistribution": [0.33,0.33,0.33]
+    "BusinessPartnerDistribution": [0.1,0.1,0.8]
 }
