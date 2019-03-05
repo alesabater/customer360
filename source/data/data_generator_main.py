@@ -38,15 +38,9 @@ def write_data(files, data):
 
     for f, datum in data.items():
         datum_fmt = [str(item) for item in datum]
-        [item[f].write(",\n".join(datum_fmt)) for item in files if f in item.keys()]
-
-        
-        
-        #print(type(",\n".join(datum_fmt)))
-          #  for file in files:
-           #     if f 
-        #print([item for item in files if f in item.values()])
-        #files[f].write(",\n".join(datum_fmt))
+        for item in files:
+             if f in item.keys():
+                 item[f].write(",\n".join(datum_fmt) + ",\n")
 
 def close_files(files):
     for f in files:

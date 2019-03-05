@@ -12,7 +12,7 @@ logger = logging.getLogger()
 
 def generate_business_partner(fake, meta):
     partners = list()
-    partner = BusinessPartnerFaker(fake)
+    partner = BusinessPartnerFaker(fake, meta)
     partners.append(partner)
     logger.info("Generated Business Partner with number: {n}".format(n=partner.business_no))
     return partners
