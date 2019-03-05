@@ -2,51 +2,47 @@ from faker import Faker
 import random
 from smartpower_models import *
 from random import *
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from numpy.random import choice
 
 def BusinessPartnerFaker(fake):
-    name = fake.first_name()
-    last_name = fake.last_name()
-    tlf = fake.phone_number()
-    email = fake.email()
-    birth = fake.date_time_between(start_date="-65y", end_date="-30y", tzinfo=None)
-    customer_start = fake.date_time_between(start_date="-4y", end_date="now", tzinfo=None)
-    address = fake.address().replace('\n',' ')
-    no = fake.random_number(digits=8, fix_len=True)
-    b = BusinessPartner(no, name, last_name, tlf, email, birth, customer_start, address)
-    return b
+    bp_name = fake.first_name()
+    bp_last_name = fake.last_name()
+    bp_tlf = fake.phone_number()
+    bp_email = fake.email()
+    bp_birth = fake.date_time_between(start_date="-65y", end_date="-30y", tzinfo=None)
+    bp_customer_start = fake.date_time_between(start_date="-4y", end_date="now", tzinfo=None)
+    bp_address = fake.address().replace('\n',' ')
+    bp_no = fake.random_number(digits=8, fix_len=True)
+    return BusinessPartner(bp_no, bp_name, bp_last_name, bp_tlf, bp_email, bp_birth, bp_customer_start, bp_address)
 
-
-def ContractFaker(fake, bn):
-    contract_types = ['Household', 'Enterprise'] 
-    no = fake.random_number(digits=6, fix_len=True)
-    contract_type = fake.word(ext_word_list=contract_types)
-    start_date = fake.date_time_between(start_date=bn.customer_start, end_date=(bn.customer_start + timedelta(days=30)), tzinfo=None)
-    if random() > 0.4:
-        end_date = datetime.strptime('9999-01-01', '%Y-%M-%d')
+def ContractFaker(fake, meta, partner):
+    co_types = ['Household', 'Enterprise'] 
+    co_bp_no = partner.business_no
+    co_no = fake.random_number(digits=6, fix_len=True)
+    co_type = fake.word(ext_word_list=co_types)
+    co_start_date = fake.date_time_between(start_date=partner.customer_start, end_date=(partner.customer_start + timedelta(days=30)), tzinfo=None)
+    if random() > meta['ContractRunningProb']:
+        co_end_date = datetime.strptime('9999-01-01', '%Y-%M-%d')
     else:
-        end_date = fake.date_time_between(start_date=start_date, end_date="now", tzinfo=None)
-    ebill = fake.word(ext_word_list=['TRUE','FALSE'])
-    c = Contract(bn.business_no, no, contract_type, start_date, end_date, ebill)
-    return c
+        co_end_date = fake.date_time_between(start_date=co_start_date, end_date="now", tzinfo=None)
+    co_ebill = fake.word(ext_word_list=['TRUE','FALSE'])
+    return Contract(co_bp_no, co_no, co_type, co_start_date, co_end_date, co_ebill)
+    
 
-def BillFaker(fake, co, date):
-    bill_bp_no = co.business_no
-    bill_co_no = co.contract_no
+def BillFaker(fake, meta, contract, date):
+    bill_bp_no = contract.business_no
+    bill_co_no = contract.contract_no
     bill_no = fake.random_number(digits=8, fix_len=True)
     bill_date = date
     bill_amount = 60.00 * (random() * 3)
-    if co.ebill_flag == 'TRUE':
+    if contract.ebill_flag == 'TRUE':
         bill_type = 'email'
     else:
         bill_type = 'paper'
-    b = Bill(bill_bp_no, bill_co_no, bill_no, bill_date, bill_type, bill_amount)
-    return b
+    return Bill(bill_bp_no, bill_co_no, bill_no, bill_date, bill_type, bill_amount)
 
- 
-def PaymentFaker(fake, bill, meta):
+def PaymentFaker(fake, meta, bill):
     if 'PaymentType' in meta:
         payment_types = meta['PaymentType'] 
     else:

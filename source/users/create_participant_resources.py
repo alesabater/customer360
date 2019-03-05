@@ -100,7 +100,7 @@ def main():
             
         logger.info("Customer360: Creating S3 buckets for user: {user}".format(user=u['username']))
         logger.info("----------------------------------------------------------------------------------------------")
-        # S3Mng.create_participant_buckets(s3_client, u['S3Buckets'])
+        S3Mng.create_participant_buckets(s3_client, u['S3Buckets'])
 
         if args['delete_glue']:
             logger.info("Customer360: Deleting Glue databases for user: {user}".format(user=u['username']))
@@ -109,7 +109,7 @@ def main():
 
         logger.info("Customer360: Creating Glue Databases for user: {user}".format(user=u['username']))
         logger.info("----------------------------------------------------------------------------------------------")
-        # GlueMng.create_participant_databases(glue_client, u['GlueDatabases'])
+        GlueMng.create_participant_databases(glue_client, u['GlueDatabases'])
 
 if __name__ == '__main__':
     main()

@@ -43,7 +43,7 @@ def create_secret(client, secret_name, region_name='eu-west-1'):
                 Tags=tags
             )
             logger.info('Created Secret for {secret_name} with value: {secret_string}'.format(secret_name=secret_name, secret_string=secret_string))
-            return response
+            return secret_string
         else: 
             # You provided an invalid value for a parameter.
             # Deal with the exception here, and/or rethrow at your discretion.

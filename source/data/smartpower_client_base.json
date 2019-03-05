@@ -1,25 +1,29 @@
 {
-    "BusinessPartners": 5,
+    "BusinessPartners": 1,
     "BusinessPartnerFlow": [
         {
-            "Contracts": 20,
+            "ContractsAmount": 20,
+            "ContractRunningProb": 1,
             "tenure": "5y",
-            "switch": 0,
+            "switch": 1,
+            "switchProb": 0.2,
             "credit_status": 0.3,
-            "PaymentType" : ["Direct Debit", "Bank Deposit"],
-            "PaymentProb" : [0.9, 0.1],
-            "PaymentDelay" : 30,
-            "InDebt" : true,
+            "PaymentType": ["Direct Debit", "Bank Deposit"],
+            "PaymentProb": [0.9, 0.1],
+            "PaymentDelay": 30,
+            "InDebt": true,
             "InDebtDays" : 540
         },
         {
-            "Contracts": 1,
+            "ContractsAmount": 1,
+            "ContractRunningProb": 1,
             "tenure": "2y",
             "switch": 0,
             "credit_status": 0.3
         },
         {
-            "Contracts": 3,
+            "ContractsAmount": 3,
+            "ContractRunningProb": 1,
             "tenure": "7y",
             "switch": 0,
             "credit_status": 0.3
