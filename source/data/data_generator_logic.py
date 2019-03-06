@@ -2,25 +2,40 @@ import logging
 import argparse
 import json
 import logging
+from random import *
 from numpy.random import choice
 from datetime import datetime
 from logging.config import fileConfig
-from smartpower_factories import BusinessPartnerFaker, ContractFaker, BillFaker, PaymentFaker
+from smartpower_factories import *
 
 fileConfig('logging_config.ini')
 logger = logging.getLogger()
 
 def generate_business_partner(fake, meta):
     partners = list()
-    partner = BusinessPartnerFaker(fake, meta)
+    partner = business_partner_faker(fake, meta)
     partners.append(partner)
     logger.info("Generated Business Partner with number: {n}".format(n=partner.business_no))
     return partners
 
+def generate_switchs(fake, meta, contracts):
+    switchs = list()
+    [switchs.append(switch_faker(fake, meta, c)) for c in contracts if random() > (1- meta["SwitchProb"])]
+    return switchs
+
+def delete_bill_for_switch(switchs, bills):
+    new_bills = list()
+    for s in switchs:
+        co = s.contract_no
+        d = s.date
+        [new_bills.append(item) for item in bills if co != item.contract_no and d > item.billing_date]
+    return new_bills
+        
+
 def generate_contracts(fake, meta, partner):
     contracts = list()
     for c in range(meta['ContractsAmount']):
-        contract = ContractFaker(fake, meta, partner)
+        contract = contract_faker(fake, meta, partner)
         logger.debug("Generated Contract with number: {n}".format(n=contract.contract_no))
         contracts.append(contract) 
     return contracts
@@ -46,7 +61,7 @@ def generate_bills(fake, meta, contracts):
     for contract in contracts:
         bill_dates = get_monthly_dates(contract.start_date, contract.end_date)
         for date in bill_dates:
-            bill = BillFaker(fake, meta, contract, date)
+            bill = bill_faker(fake, meta, contract, date)
             logger.debug("Generated Bill with number: {n}".format(n=bill.billing_no))
             bills.append(bill)
     return sorted(bills)
@@ -62,7 +77,7 @@ def generate_payments(fake, meta, bills):
         if 'InDebt' in meta and date_diff.days < debt_days:
             break
         else:
-            payment = PaymentFaker(fake, meta, b)
+            payment = payment_faker(fake, meta, b)
             logger.debug("Generated Payment with number: {n}".format(n=payment.payment_no))
             payments.append(payment)
     return sorted(payments)

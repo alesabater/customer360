@@ -1,7 +1,8 @@
 from datetime import datetime
 
 class BusinessPartner:
-    def __init__(self, business_no, name, last_name, tlf, email, birth, customer_start, address):
+    def __init__(self, business_type, business_no, name, last_name, tlf, email, birth, customer_start, address):
+        self.business_type = business_type
         self.business_no = business_no
         self.name = name
         self.last_name = last_name
@@ -12,7 +13,8 @@ class BusinessPartner:
         self.address = address
 
     def __str__(self):
-        return '({bn},"{n}","{ln}","{e}","{tlf}","{b}","{a}")'.format(
+        return '("{x}",{bn},"{n}","{ln}","{e}","{tlf}","{b}","{a}")'.format(
+            x=self.business_type,
             bn=self.business_no, 
             n=self.name, 
             ln=self.last_name, 
@@ -27,6 +29,13 @@ class Switch:
         self.contract_no = contract_no
         self.date = date
         self.reason = reason 
+    
+    def __str__(self):
+        return '({bn},{cn},"{t}","{s}")'.format(
+            bn=self.business_partner, 
+            cn=self.contract_no, 
+            t=self.date.strftime('%Y-%m-%d'), 
+            s=self.reason)
 
 class Install:
     def __init__(self, no, config_code, meter_type, unit, address, date):
@@ -56,21 +65,30 @@ class Contract:
             eb=self.ebill_flag)
 
 class Bill:
-    def __init__(self, business_no, contract_no, billing_no, billing_date, billing_type, amount):
+    def __init__(self, business_no, contract_no, billing_no, billing_date, billing_type, billing_consumption, amount):
         self.business_no = business_no
         self.contract_no = contract_no
         self.billing_no = billing_no
         self.billing_date = billing_date
         self.billing_type = billing_type
+        self.billing_consumption = billing_consumption
         self.amount = amount
     
+    def get_consumption(self):
+        return '({bn},{cn},"{t}",{s})'.format(
+            bn=self.business_no, 
+            cn=self.contract_no, 
+            t=self.billing_date.strftime('%Y-%m-%d'), 
+            s=self.billing_consumption)
+    
     def __str__(self):
-        return '({bn},{cn},{t},"{s}","{e}",{eb})'.format(
+        return '({bn},{cn},{t},"{s}","{e}",{c},{eb})'.format(
             bn=self.business_no, 
             cn=self.contract_no, 
             t=self.billing_no, 
             s=self.billing_date.strftime('%Y-%m-%d'), 
             e=self.billing_type, 
+            c=self.billing_consumption,
             eb=self.amount)
     
     def __lt__(self, other):

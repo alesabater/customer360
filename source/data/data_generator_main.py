@@ -6,8 +6,8 @@ from numpy.random import choice
 from faker import Faker
 from datetime import datetime
 from logging.config import fileConfig
-from data_generator_logic import generate_bills, generate_contracts, generate_business_partner, generate_payments
-from faker.providers import internet, date_time, person, phone_number, address, lorem
+from data_generator_logic import *
+from faker.providers import date_time, person, phone_number, internet, address, lorem
 
 fileConfig('logging_config.ini')
 logger = logging.getLogger()
@@ -35,7 +35,6 @@ def open_get_files(file_list):
     return files
 
 def write_data(files, data): 
-
     for f, datum in data.items():
         datum_fmt = [str(item) for item in datum]
         for item in files:
@@ -58,18 +57,26 @@ def init_faker_providers():
 
 def generate_customer_data(fake, meta_profiles):
     # Select Profile type to create
-    meta = choice(meta_profiles['BusinessPartnerFlow'], 1, meta_profiles['BusinessPartnerDistribution'])[0]
+    meta = choice(meta_profiles['BusinessPartnerFlow'], p=meta_profiles['BusinessPartnerDistribution'])
     # Start data generation for customer
     partner = generate_business_partner(fake, meta)
     contracts = generate_contracts(fake, meta, partner[0]) 
     bills = generate_bills(fake, meta, contracts)
-    payments = generate_payments(fake, meta, bills)
+    switchs = generate_switchs(fake, meta, contracts)
+    bills_n = delete_bill_for_switch(switchs, bills)
+    payments = generate_payments(fake, meta, bills_n)
+    consumption = [bill.get_consumption() for bill in bills_n]
+    print(consumption)
+    
+    
     # Return results using same file names
     return {
         'business_partner': partner, 
         'contract': contracts, 
-        'billing': bills, 
-        'payment': payments
+        'billing': bills_n, 
+        'payment': payments,
+        'switch': switchs,
+        'consumption': consumption
     }
 
 def main():
@@ -79,7 +86,8 @@ def main():
         {'file': 'contract', 'table':'table_billing'},
         {'file': 'billing', 'table':'table_contract'},
         {'file': 'payment', 'table':'table_payment'},
-        {'file': 'switch', 'table':'table_switch'}
+        {'file': 'switch', 'table':'table_switch'},
+        {'file': 'consumption', 'table':'table_consumption_monthly'}
     ]
     logger.info('Insert Files to be created: \n ' + str(files))
 

@@ -1,0 +1,201 @@
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Customer360 EMR Cluster deployment CloudFormation template.
+  It deploys:
+    - 
+
+Metadata: 
+  AWS::CloudFormation::Interface:
+    ParameterGroups: 
+    - Label: 
+        default: Environment - General Environment Parameters
+      Parameters:
+      - EnvironmentName
+      - EnvironmentSize
+    - Label:
+        default: EMR - Cluster Parameters
+      Parameters:
+      - EC2KeyName  
+    - Label:
+        default: Tags
+      Parameters:
+      - IsWork  
+      - WorkType
+    ParameterLabels:
+      EnvironmentName: 
+        default: Environment Name
+      EnvironmentSize:
+        default: Environment Size
+      EC2KeyName:
+        default: SSH Key access to access the EMR Cluster
+      IsWork:
+        default: Work Related Stack?
+      WorkType:
+        default: If Work Related, What Project/Training/Type
+
+Parameters: 
+  EnvironmentName:
+    Description: A name for the environment that will be prefixed to resource names
+    Type: String
+    Default: customer360
+  EnvironmentSize:
+    Type: String  
+    Default: SMALL
+    AllowedValues:
+    - MICRO
+    - SMALL
+    - MEDIUM
+    - LARGE
+    Description: Select Environment Size (XS,S,M,L)
+  EC2KeyName:
+    Description: SSH key pair to use for EMR node login
+    Type: AWS::EC2::KeyPair::KeyName
+  IsWork:
+    Type: String
+    Description: Defines if it is work related activity
+    Default: true
+  WorkType:
+    Type: String
+    Description: Defines the type of work being done
+    Default: customer360
+
+Mappings: 
+  InstanceSize:
+    MICRO: 
+      "MasterNodes" : "1"
+      "MasterNode" : "c4.large"
+      "CoreNodes": "1"
+      "CoreNode" : "r3.xlarge"
+    SMALL:
+      "MasterNodes" : "1"
+      "MasterNode" : "c4.large"
+      "CoreNodes": "1"
+      "CoreNode" : "r3.2xlarge"
+    MEDIUM:
+      "MasterNodes" : "1"
+      "MasterNode" : "c4.large"
+      "CoreNodes": "1"
+      "CoreNode" : "r3.4xlarge"
+    LARGE:
+      "MasterNodes" : "1"
+      "MasterNode" : "c4.large"
+      "CoreNodes": "1"
+      "CoreNode" : "r3.8xlarge"
+
+Resources: 
+  AllowWebUIs:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'Security Group for WebUIs for EMR Cluster'
+      GroupName: !Sub ${EnvironmentName}-emr-sg
+      VpcId:
+        Fn::ImportValue: !Sub '${EnvironmentName}:VpcId'
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 8888
+        ToPort: 8888
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-emr-sg
+      - Key: IsWork
+        Value: !Ref IsWork
+      - Key: WorkType
+        Value: !Ref WorkType
+  EmrEc2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+      - Ref: EmrEc2Role
+  EmrEc2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceforEC2Role
+      Policies:
+      - PolicyName: Athena-for-EMR
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource: "*"
+            Action:
+            - athena:*
+            Effect: Allow
+  EmrServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - elasticmapreduce.amazonaws.com
+        Version: '2012-10-17'
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceRole
+  SparkCluster:
+    Type: AWS::EMR::Cluster
+    Properties:
+      Applications:
+      - Name: Hadoop
+      - Name: Hive
+      - Name: Spark
+      - Name: Ganglia
+      #- Name: Hue
+      - Name: Zeppelin
+      Configurations:
+      - Classification: spark-hive-site
+        ConfigurationProperties:
+          hive.metastore.client.factory.class: com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory
+      Instances:
+        AdditionalMasterSecurityGroups:
+        - !GetAtt AllowWebUIs.GroupId
+        Ec2KeyName: !Ref EC2KeyName
+        Ec2SubnetId:
+          Fn::ImportValue: !Sub '${EnvironmentName}:PublicSubnet1'
+        MasterInstanceGroup:
+          InstanceCount: !FindInMap [InstanceSize, !Ref EnvironmentSize, MasterNodes]
+          InstanceType: !FindInMap [InstanceSize, !Ref EnvironmentSize, MasterNode]
+        CoreInstanceGroup:
+          InstanceCount: !FindInMap [InstanceSize, !Ref EnvironmentSize, CoreNodes]
+          InstanceType: !FindInMap [InstanceSize, !Ref EnvironmentSize, CoreNode]
+      Name: !Sub ${EnvironmentName}-emr
+      JobFlowRole: !Ref EmrEc2InstanceProfile
+      ServiceRole: !Ref EmrServiceRole
+      ReleaseLabel: emr-5.21.0
+      Tags:
+      - Key: Name
+        Value: !Sub ${EnvironmentName}-emr
+      - Key: IsWork
+        Value: !Ref IsWork
+      - Key: WorkType
+        Value: !Ref WorkType
+
+# RDS Outputs declaration block
+Outputs:
+  StackName:
+    Value:
+      Ref: AWS::StackName
+  RegionName:
+    Value:
+      Ref: AWS::Region
+  EmrDns:
+      Description : Database Identifier
+      Value : !GetAtt SparkCluster.MasterPublicDNS
+      Export:
+        Name: !Join [ ":", [ !Ref 'EnvironmentName', EmrMasterDns ] ]  
