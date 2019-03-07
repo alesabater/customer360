@@ -1,5 +1,5 @@
 {
-    "BusinessPartners": 10,
+    "BusinessPartners": 100,
     "BusinessPartnerFlow": [
         {
             "PartnerType": "A",
@@ -66,5 +66,5 @@
             "InDebtDays" : 0
         }
     ],
-    "BusinessPartnerDistribution": [0,1,0]
+    "BusinessPartnerDistribution": [0.33,0.34,0.33]
 }
