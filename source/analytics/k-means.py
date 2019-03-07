@@ -23,21 +23,27 @@ dfc = df.loc[:,[c for c in df.columns if c!="CREATION_DATE"]]
 #Create KMeans object with 2 clusters and pass dfc data
 kmeans = KMeans(n_clusters=2, random_state=0).fit(dfc)
 
-#List labels for the data point as an array
-kmeans.labels_
+#List labels for the data point as an array and cluster centres
+print(kmeans.labels_)
+print(kmeans.cluster_centers_)
 
 #K-means used for feature extraction on unseen data (not used atm)
-y_pred = kmeans.predict(dfc)
+#y_pred = kmeans.predict(dfc)
 
 #Linear dimensionality reduction using Principal component analysis (PCA)
 X_prime = decomposition.PCA(n_components=2).fit_transform(dfc)
+
+#PCA array dimensions as a tuple (rows, columns)
+np.shape(X_prime)
+
+#Print PCA 2-dimensional aray
+print(X_prime)
 
 #Plot the results from the model
 plt.subplot(221)
 plt.scatter(X_prime[:, 0], X_prime[:, 1], c=kmeans.labels_)
 plt.title("Clustered Attribute Row Data by Colours")
 
-
-
-#np.shape(X_prime)
-
+#Highlight centroids in black
+plt.scatter(kmeans.cluster_centers_[:,0] ,kmeans.cluster_centers_[:,1], color='black')
+plt.title("Clustered Attribute Row Data with Centroids")
