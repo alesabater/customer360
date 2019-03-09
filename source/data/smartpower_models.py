@@ -13,14 +13,15 @@ class BusinessPartner:
         self.address = address
 
     def __str__(self):
-        return '("{x}",{bn},"{n}","{ln}","{e}","{tlf}","{b}","{a}")'.format(
+        return '("{x}",{bn},"{n}","{ln}","{e}","{tlf}","{b}","{r}","{a}")'.format(
             x=self.business_type,
             bn=self.business_no, 
             n=self.name, 
             ln=self.last_name, 
             e=self.tlf, 
             tlf=self.email, 
-            b=self.birth.strftime('%Y-%m-%d'),  
+            b=self.birth.strftime('%Y-%m-%d'),
+            r=self.customer_start.strftime('%Y-%m-%d'),  
             a=self.address)
 
 class Switch:

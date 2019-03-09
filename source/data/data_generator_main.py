@@ -83,8 +83,8 @@ def main():
     args = read_arguments()
     files = [
         {'file': 'business_partner', 'table':'table_business_partner'},
-        {'file': 'contract', 'table':'table_billing'},
-        {'file': 'billing', 'table':'table_contract'},
+        {'file': 'contract', 'table':'table_contract'},
+        {'file': 'billing', 'table':'table_billing'},
         {'file': 'payment', 'table':'table_payment'},
         {'file': 'switch', 'table':'table_switch'},
         {'file': 'consumption', 'table':'table_consumption_monthly'}
