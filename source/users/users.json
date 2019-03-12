@@ -1,26 +1,44 @@
 {
     "users": [
-        "username01",
-        "username02",
-        "username03",
-        "username04",
-        "username05",
-        "username06",
-        "username07",
         "username08",
-        "username09",
-        "username11",
-        "username12",
-        "username13",
-        "username14",
-        "username15"
+        "username04",
+        "username06",
+        "username07"
     ],
     "userDetails": {
-        "group": "customer360-participant",
+        "Group": "customer360-participant1",
         "DataStagingAreas": ["landing","trusted","refined"],
         "createS3Buckets": true,
         "S3NamingConvention": "customer360-{username}-{area}-eaberlin",
         "createGlueDatabases": true,
-        "GlueNamingConvention": "{username}_{area}_db"
-    }
+        "GlueNamingConvention": "{username}_{area}_db",
+        "GroupPoliciesPath": "./policies/group/"
+    },
+    "groupPolicies": [
+        {
+            "PolicyName": "Customer360DMSFullAccessPolicy",
+            "PolicyJsonPath": "./policies/group/dms-access.json",
+            "Group" : "customer360-participant1"
+        },
+        {
+            "PolicyName": "Customer360GlueFullAccessPolicy",
+            "PolicyJsonPath": "./policies/group/glue-access.json",
+            "Group" : "customer360-participant1"
+        },
+        {
+            "PolicyName": "Customer360S3SourceCodePolicy",
+            "PolicyJsonPath": "./policies/participant/allow-s3-source-bucket.json",
+            "Group" : "customer360-participant1"
+        }
+    ],
+    "userPolicies": [
+        {
+            "PolicyName": "Customer360GlueAccessPolicy",
+            "PolicyJsonPath": "./policies/participant/glue-deny-db.json"
+        },
+        {
+            "PolicyName": "Customer360S3DataLakePolicy",
+            "PolicyJsonPath": "./policies/participant/allow-s3-glue-buckets.json"
+        }
+    ]
 }

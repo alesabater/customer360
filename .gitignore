@@ -4,3 +4,4 @@ source/users/__pycache__/*
 source/users/__pycache__/
 source/smartpower_generator/__pycache__/*
 source/smartpower_generator/__pycache__/
+lambda-env/*

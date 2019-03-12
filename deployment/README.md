@@ -15,6 +15,8 @@ The overall goal of the workshop is to demonstrate how to build a Data Lake on t
 
 ## Target State Architecture
 
+## Customer Steps
+
 ## Database Migration - Change Data Capture (CDC)
 
 ## Customer360 - Data lifecycle

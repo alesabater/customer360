@@ -6,6 +6,8 @@ Description: |
     - 
 
 Metadata: 
+
+
   AWS::CloudFormation::Interface:
     ParameterGroups: 
     - Label: 
@@ -35,6 +37,9 @@ Metadata:
         default: If Work Related, What Project/Training/Type
 
 Parameters: 
+
+
+
   EnvironmentName:
     Description: A name for the environment that will be prefixed to resource names
     Type: String
@@ -84,6 +89,9 @@ Mappings:
       "CoreNode" : "r3.8xlarge"
 
 Resources: 
+
+
+
   AllowWebUIs:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -148,6 +156,13 @@ Resources:
         Version: '2012-10-17'
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceRole
+
+
+
+
+
+
+
   SparkCluster:
     Type: AWS::EMR::Cluster
     Properties:
@@ -155,11 +170,13 @@ Resources:
       - Name: Hadoop
       - Name: Hive
       - Name: Spark
-      - Name: Ganglia
+      - Name: Livy
+      - Name: JupiterHub
       #- Name: Hue
-      - Name: Zeppelin
       Configurations:
       - Classification: spark-hive-site
+      classification=spark-hive-site, properties=[hive.metastore.client.factory.class=com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory]
+      classification=hive-site, properties=[hive.metastore.client.factory.class=com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory]
         ConfigurationProperties:
           hive.metastore.client.factory.class: com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory
       Instances:

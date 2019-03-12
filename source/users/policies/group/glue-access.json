@@ -1,0 +1,57 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "glue:*",
+                "redshift:DescribeClusters",
+                "redshift:DescribeClusterSubnetGroups",
+                "iam:ListRoles",
+                "iam:ListRolePolicies",
+                "iam:GetRole",
+                "iam:GetRolePolicy",
+                "iam:ListAttachedRolePolicies",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeVpcs",
+                "ec2:DescribeVpcEndpoints",
+                "ec2:DescribeRouteTables",
+                "ec2:DescribeVpcAttribute",
+                "ec2:DescribeKeyPairs",
+                "ec2:DescribeInstances",
+                "rds:DescribeDBInstances",
+                "s3:ListAllMyBuckets",
+                "s3:ListBucket",
+                "s3:GetBucketAcl",
+                "s3:GetBucketLocation",
+                "cloudformation:DescribeStacks",
+                "cloudformation:GetTemplateSummary",
+                "dynamodb:ListTables",
+                "kms:ListAliases",
+                "kms:DescribeKey",
+                "cloudwatch:GetMetricData",
+                "cloudwatch:ListDashboards"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::aws-glue-*/*",
+                "arn:aws:s3:::*/*aws-glue-*/*",
+                "arn:aws:s3:::aws-glue-*",
+                "arn:aws:s3:::aws-athena-*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": "athena:*",
+            "Resource": "arn:aws:athena:eu-west-1:557293008308:workgroup/primary"
+        }
+    ]
+}

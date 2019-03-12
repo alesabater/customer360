@@ -9,6 +9,7 @@ import manager_secrets as SecretsMng
 import manager_user as UserMng
 import manager_s3 as S3Mng
 import manager_glue as GlueMng
+import manager_roles as RoleMng
 #from manager_secrets import create_secret
 #from manager_user import iam_create_user
 from logging.config import fileConfig
@@ -18,7 +19,7 @@ fileConfig('logging_config.ini')
 logger = logging.getLogger()
 tags = [{'Key': 'IsWork','Value': 'true'},{'Key': 'WorkType','Value': 'customer360'}]
 
-def read_users(json_path):
+def read_file(json_path):
     with open(json_path) as f:
         data = json.load(f)
     return data
@@ -34,7 +35,7 @@ def get_resource_list(user, string_format, staging_areas):
 def create_user_dict(user, user_meta):
     user_dict = {}
     user_dict['username'] = user
-    user_dict['group'] = user_meta['group']
+    user_dict['Group'] = user_meta['Group']
     user_dict['DataStagingAreas'] = user_meta['DataStagingAreas']
     if user_meta['createS3Buckets'] == True:
         user_dict['S3Buckets'] = get_resource_list(user, user_meta['S3NamingConvention'], user_meta['DataStagingAreas'])
@@ -48,13 +49,15 @@ def read_arguments():
     parser.add_argument('-r', '--region', help='Region in which secrets are created', default='eu-west-1')
     parser.add_argument('--delete-s3-buckets', action='store_true', help='Flag to delete all participants S3 buckets')
     parser.add_argument('--delete-glue-databases', action='store_true', help='Flag to delete all participants Glue databases')
+    parser.add_argument('--create-roles', action='store_true', help='Flag to delete all participants Glue databases')
     args = parser.parse_args()
     print(args)
     json_arg = vars(args)['file']
     region_arg = vars(args)['region']
     delete_s3 = vars(args)['delete_s3_buckets']
     delete_glue = vars(args)['delete_glue_databases']
-    return {'json_path': json_arg, 'region': region_arg, 'delete_s3': delete_s3, 'delete_glue': delete_glue}
+    create_roles = vars(args)['create_roles']
+    return {'json_path': json_arg, 'region': region_arg, 'delete_s3': delete_s3, 'delete_glue': delete_glue, 'create_roles': create_roles}
 
 def main():
     # Read Arguments
@@ -62,8 +65,10 @@ def main():
 
     # Read JSON
     logger.info('Reading JSON file: %s', args['json_path'])
-    users_file = read_users(args['json_path'])
+    users_file = read_file(args['json_path'])
     users = users_file['users']
+    group_policies = users_file['groupPolicies']
+    user_policies = users_file['userPolicies']
     users_meta = users_file['userDetails']
     logger.info('Read {:d} users from users filename'.format(len(users)))
 
@@ -75,9 +80,20 @@ def main():
         service_name='secretsmanager',
         region_name=args['region']
     )
-    iam_client = boto3.resource('iam')
+    iam_client = boto3.client('iam')
     s3_client = boto3.client('s3')
     glue_client = boto3.client('glue')
+
+    logger.info("----------------------------------------------------------------------------------------------")
+    logger.info("Customer360: Creating IAM group: [{g}] for participants".format(g=user_list_full[0]['Group']))
+    logger.info("----------------------------------------------------------------------------------------------")
+    UserMng.iam_create_group(iam_client, user_list_full[0]['Group'])
+
+    logger.info("----------------------------------------------------------------------------------------------")
+    logger.info("Customer360: Creating IAM Policies for group: [{g}]".format(g=user_list_full[0]['Group']))
+    logger.info("----------------------------------------------------------------------------------------------")
+    RoleMng.create_group_policies(iam_client, group_policies)
+
 
     
     # Create or retrieve existing secrets for AWS Users
@@ -91,8 +107,8 @@ def main():
         
         logger.info("Customer360: Creating user: {user}".format(user=u['username']))
         logger.info("----------------------------------------------------------------------------------------------")
-        
         UserMng.iam_create_user(iam_client, u)
+
         if args['delete_s3']:
             logger.info("Customer360: Deleting S3 buckets for user: {user}".format(user=u['username']))
             logger.info("----------------------------------------------------------------------------------------------")
@@ -110,6 +126,11 @@ def main():
         logger.info("Customer360: Creating Glue Databases for user: {user}".format(user=u['username']))
         logger.info("----------------------------------------------------------------------------------------------")
         GlueMng.create_participant_databases(glue_client, u['GlueDatabases'])
+
+        #if args['create_roles']:
+        logger.info("Customer360: Creating policies for user: {user}".format(user=u['username']))
+        logger.info("----------------------------------------------------------------------------------------------")
+        RoleMng.create_user_policies(iam_client, user_policies, u)
 
 if __name__ == '__main__':
     main()

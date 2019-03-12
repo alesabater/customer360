@@ -14,10 +14,12 @@ def iam_create_user(client, user, override=False):
             UserName=user['username'],
             Tags=tags)
         logger.info('User: {username} has been created'.format(username=user['username']))
-        user_aws = client.User(user['username'])
-        user_aws.create_login_profile(
+        print(user['username'])
+        #user_aws = client.get_user(UserName=user['username'])
+        client.create_login_profile(
             Password=user['password'],
-            PasswordResetRequired=False
+            PasswordResetRequired=False,
+            UserName=user['username']
         )
     except ClientError as e:
         if e.response['Error']['Code'] == 'EntityAlreadyExists':
@@ -28,12 +30,21 @@ def iam_create_user(client, user, override=False):
         else:
             logger.info('Unhandled error. Please check your code.')
             raise e
+    client.add_user_to_group(
+            GroupName=user['Group'],
+            UserName=user['username']
+    )
+
+def iam_create_group(client, group):
     try:
-        group = client.Group(user['group'])
-        group.add_user(UserName = user['username'])
-        logger.info('User: {username} has been added to the group: {group}'.format(username=user['username'], group=user['group']))
+        group = client.create_group(
+            Path="/",
+            GroupName=group
+        )
     except ClientError as e:
-        group.create()
-        logger.info('Group: {group} does not exists. Group will be created'.format(username=user['username'], group=user['group']))
-        group.add_user(UserName = user['username'])
-        logger.info('User: {username} has been added to the group: {group}'.format(username=user['username'], group=user['group']))
+        if e.response['Error']['Code'] == 'EntityAlreadyExists':
+            logger.info('Group: {g} already exist. Will skip the group creation step'.format(g=group)) 
+        else:
+            logger.info('Unhandled error when creating group. Please check your code.')
+            raise e
+    
