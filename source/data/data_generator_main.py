@@ -63,8 +63,11 @@ def generate_customer_data(fake, meta_profiles):
     contracts = generate_contracts(fake, meta, partner[0]) 
     bills = generate_bills(fake, meta, contracts)
     switchs = generate_switchs(fake, meta, contracts)
+    print(bills)
     bills_n = delete_bill_for_switch(switchs, bills)
+    print(bills_n)
     payments = generate_payments(fake, meta, bills_n)
+    print(payments)
     consumption = [bill.get_consumption() for bill in bills_n]
     print(consumption)
     

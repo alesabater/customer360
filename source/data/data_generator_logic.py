@@ -24,12 +24,20 @@ def generate_switchs(fake, meta, contracts):
     return switchs
 
 def delete_bill_for_switch(switchs, bills):
+    #for s in bills 
     new_bills = list()
-    for s in switchs:
-        co = s.contract_no
-        d = s.date
-        [new_bills.append(item) for item in bills if co != item.contract_no and d > item.billing_date]
-    return new_bills
+    for b in bills:
+        print(str(b))
+    if len(switchs)==0:
+        return bills
+    else:
+        for s in switchs:
+            co = s.contract_no
+            d = s.date
+            print(co)
+            print(d)
+            [new_bills.append(item) for item in bills if co == item.contract_no and d > item.billing_date]
+        return new_bills
         
 
 def generate_contracts(fake, meta, partner):

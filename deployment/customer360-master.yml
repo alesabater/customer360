@@ -176,7 +176,7 @@ Parameters:
 Mappings:
   SourceCode:
     General:
-      S3Bucket: "eabootcamp-customer360-2019"
+      S3Bucket: "eabootcamp-berlin-customer360-2019"
       KeyPrefix: "customer360"
 
 Resources:
@@ -220,32 +220,18 @@ Resources:
         IsWork: !Ref IsWork
         WorkType: !Ref WorkType
   
-  Customer360DMSStack:
-    Type: "AWS::CloudFormation::Stack"
-    Properties:
-      TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !FindInMap ["SourceCode", "General", "S3Bucket"], !FindInMap ["SourceCode", "General", "KeyPrefix"], "customer360-dms.yml"]]
-      Parameters:
-        EnvironmentName: !Ref EnvironmentName
-        EnvironmentSize: !Ref EnvironmentSize
-        IsWork: !Ref IsWork
-        WorkType: !Ref WorkType
-    DependsOn:
-    - Customer360NetworkStack
-    - Customer360MySQLStack
-        
-  
-  Customer360EmrStack:
-    Type: "AWS::CloudFormation::Stack"
-    Properties:
-      TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !FindInMap ["SourceCode", "General", "S3Bucket"], !FindInMap ["SourceCode", "General", "KeyPrefix"], "customer360-emr.yml"]]
-      Parameters:
-        EnvironmentName: !Ref EnvironmentName
-        EnvironmentSize: !Ref EnvironmentSize
-        IsWork: !Ref IsWork
-        WorkType: !Ref WorkType
-    DependsOn:
-    - Customer360NetworkStack
-    - Customer360MySQLStack
+ # Customer360DMSStack:
+ #   Type: "AWS::CloudFormation::Stack"
+ #   Properties:
+ #     TemplateURL: !Join ["/", ["https://s3.amazonaws.com", !FindInMap ["SourceCode", "General", "S3Bucket"], !FindInMap ["SourceCode", "General", "KeyPrefix"], "customer360-dms.yml"]]
+ #     Parameters:
+ #       EnvironmentName: !Ref EnvironmentName
+ #       EnvironmentSize: !Ref EnvironmentSize
+ #       IsWork: !Ref IsWork
+ #       WorkType: !Ref WorkType
+ #   DependsOn:
+ #   - Customer360NetworkStack
+ #   - Customer360MySQLStack
 
 Outputs:
   StackName:

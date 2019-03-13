@@ -87,12 +87,12 @@ Resources:
         - Fn::ImportValue: !Sub '${EnvironmentName}:PublicSubnet1'
         - Fn::ImportValue: !Sub '${EnvironmentName}:PublicSubnet2'
         - Fn::ImportValue: !Sub '${EnvironmentName}:PublicSubnet3'
-  DMSReplicationInstance:
+  DMSReplicationInstanceA:
     Type: AWS::DMS::ReplicationInstance
     Properties:
       PubliclyAccessible: false
       ReplicationInstanceClass: !FindInMap [InstanceSize, !Ref EnvironmentSize, DMS]
-      ReplicationInstanceIdentifier: !Sub ${EnvironmentName}-dms-instance
+      ReplicationInstanceIdentifier: !Sub ${EnvironmentName}-dms-instance-A
       ReplicationSubnetGroupIdentifier:
         Ref: DMSReplicationSubnetGroup
       VpcSecurityGroupIds:
@@ -100,7 +100,20 @@ Resources:
     DependsOn:
     - DMSReplicationSubnetGroup
     - DMSSecurityGroup
-  MySQLSourceEndpoint:
+  DMSReplicationInstanceB:
+    Type: AWS::DMS::ReplicationInstance
+    Properties:
+      PubliclyAccessible: false
+      ReplicationInstanceClass: !FindInMap [InstanceSize, !Ref EnvironmentSize, DMS]
+      ReplicationInstanceIdentifier: !Sub ${EnvironmentName}-dms-instance-B
+      ReplicationSubnetGroupIdentifier:
+        Ref: DMSReplicationSubnetGroup
+      VpcSecurityGroupIds:
+      - Ref: DMSSecurityGroup
+    DependsOn:
+    - DMSReplicationSubnetGroup
+    - DMSSecurityGroup
+  MySQLSourceEndpointA:
     Type: AWS::DMS::Endpoint
     Properties:
       EndpointType: source
@@ -123,16 +136,50 @@ Resources:
             - 'SecretString:username}}'
       #Username: username
     DependsOn:
-    - DMSReplicationInstance
+    - DMSReplicationInstanceA
+  MySQLSourceEndpointB:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointType: source
+      EngineName: mysql
+      Password: 
+        Fn::Join: 
+          - ':' 
+          - - '{{resolve:secretsmanager'
+            - Fn::ImportValue: !Sub '${EnvironmentName}:MySQLSecret'
+            - 'SecretString:password}}'
+      #Password: password
+      Port: 3306
+      ServerName: 
+        Fn::ImportValue: !Sub '${EnvironmentName}:DBId'
+      Username: 
+        Fn::Join: 
+          - ':' 
+          - - '{{resolve:secretsmanager'
+            - Fn::ImportValue: !Sub '${EnvironmentName}:MySQLSecret'
+            - 'SecretString:username}}'
+      #Username: username
+    DependsOn:
+    - DMSReplicationInstanceB
 
 Outputs:
-  DMSReplicationInstance:
-    Description: A reference to the DMS Replication Instance
-    Value: !Ref DMSReplicationInstance
+  DMSReplicationInstanceA:
+    Description: A reference to the DMS Replication Instance A
+    Value: !Ref DMSReplicationInstanceA
     Export:
-      Name: !Join [ ":", [ !Ref 'EnvironmentName', DMSReplicationInstance ] ]
-  MySQLSourceEndpoint:
+      Name: !Join [ ":", [ !Ref 'EnvironmentName', DMSReplicationInstanceA ] ]
+  DMSReplicationInstanceB:
+    Description: A reference to the DMS Replication Instance B
+    Value: !Ref DMSReplicationInstanceB
+    Export:
+      Name: !Join [ ":", [ !Ref 'EnvironmentName', DMSReplicationInstanceB ] ]
+  MySQLSourceEndpointA:
     Description: A reference to DMS SQL Endpoint
-    Value: !Ref MySQLSourceEndpoint
+    Value: !Ref MySQLSourceEndpointA
     Export:
-      Name: !Join [ ":", [ !Ref 'EnvironmentName', MySQLSourceEndpoint ] ]
+      Name: !Join [ ":", [ !Ref 'EnvironmentName', MySQLSourceEndpointA ] ]
+  MySQLSourceEndpointB:
+    Description: A reference to DMS SQL Endpoint
+    Value: !Ref MySQLSourceEndpointB
+    Export:
+      Name: !Join [ ":", [ !Ref 'EnvironmentName', MySQLSourceEndpointB ] ]

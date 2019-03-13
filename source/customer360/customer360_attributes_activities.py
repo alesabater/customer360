@@ -6,6 +6,7 @@ from awsglue.context import GlueContext
 from awsglue.job import Job
 from pyspark.sql.functions import *
 from awsglue.dynamicframe import DynamicFrame
+import datetime
 
 
 args = getResolvedOptions(sys.argv, ['JOB_NAME', 'username'])
@@ -20,11 +21,24 @@ parameters = {
     "trusted_db" : "{u}_trusted_db".format(u=username),
     "s3_output_attributes" : "s3://customer360-{u}-refined-eaberlin/customer_attributes".format(u=username),
     "s3_output_activities" : "s3://customer360-{u}-refined-eaberlin/customer_activities".format(u=username),
-    "attributes_columns" : ["business_partner_no", "business_partner_name", "business_partner_lastname", "business_partner_telephone",
-                 "business_partner_email", "relation_start_date", "business_partner_birthdate",
-                "contract_amount","first_contract_date","contracts","contracts_act","amount_act",
-                "first_contract_act_date", "switch_amount", "switch_dates", "avg_billing", "avg_kwh",
-                "avg_billing_year", "avg_kwh_year","avg_billing_month", "avg_kwh_month"],
+    "attributes_columns" : [
+        "business_partner_no", 
+        "business_partner_name", 
+        "business_partner_lastname", 
+        "business_partner_telephone",
+        "business_partner_email",  
+        "business_partner_birthdate",
+        "relation_start_date", 
+        "contract_amount",
+        "contracts",
+        "contracts_act",
+        "amount_act",
+        "switch_amount", 
+        "switch_dates", 
+        "avg_billing", 
+        "avg_kwh", 
+        "bill_qty",
+        "payment_qty"],
     "activities_columns" : ["activity_type", "activity_subtype", "activity_id", "activity_date", "year", "month", "day"]
 }
 
@@ -71,43 +85,30 @@ billing_avg_partner = (dfbilling
                       .agg(
                           avg("b_billing_amount").alias("avg_billing"),
                           avg("b_billing_kwh").alias("avg_kwh"),
+                          count("b_billing_date").alias("bill_qty")
                           )
                        .cache())
 
-billing_avg_year = (dfbilling
-                      .withColumn("year", year("b_billing_date"))
-                      .groupBy("b_business_partner_no","year")
+payment_qty = (dfpayment
+                      .groupBy("p_business_partner_no")
                       .agg(
-                          avg("b_billing_amount").alias("avg_billing_year"),
-                          avg("b_billing_kwh").alias("avg_kwh_year"),
+                          count("p_payment_date").alias("payment_qty")      
                           )
-                      .withColumnRenamed("b_business_partner_no","b_year_business_partner_no")
-                      .cache())
-
-billing_avg_month = (dfbilling
-                      .withColumn("year", year("b_billing_date"))
-                      .withColumn("month", month("b_billing_date"))
-                      .groupBy("b_business_partner_no","year", "month")
-                      .agg(
-                          avg("b_billing_amount").alias("avg_billing_month"),
-                          avg("b_billing_kwh").alias("avg_kwh_month"),
-                          )
-                      .withColumnRenamed("b_business_partner_no","b_month_business_partner_no")
                       .cache())
 
 # Create Attributes DataFrame
 dfattributes = (dfpartner
-              .join(contract_amt, col("business_partner_no")==col("c_business_partner_no"))
-              .join(contract_act_amt, col("business_partner_no")==col("c_act_business_partner_no"))
-              .join(switch_amt, col("business_partner_no")==col("s_business_partner_no"))
-              .join(billing_avg_partner, col("business_partner_no")==col("b_business_partner_no"))
-              .join(billing_avg_year, col("business_partner_no")==col("b_year_business_partner_no"))
-              .join(billing_avg_month, col("business_partner_no")==col("b_month_business_partner_no"))
+              .join(contract_amt, col("business_partner_no")==col("c_business_partner_no"), "left_outer")
+              .join(contract_act_amt, col("business_partner_no")==col("c_act_business_partner_no"), "left_outer")
+              .join(switch_amt, col("business_partner_no")==col("s_business_partner_no"), "left_outer")
+              .join(billing_avg_partner, col("business_partner_no")==col("b_business_partner_no"), "left_outer")
+              .join(payment_qty, col("business_partner_no")==col("p_business_partner_no"), "left_outer")
               .select(parameters['attributes_columns'])
              )
 
+
 # Write Attributes to S3
-dfattributes.write.parquet(parameters['s3_output_attributes'])
+dfattributes.repartition(5).write.mode("overwrite").parquet(parameters['s3_output_attributes'])
 
 #################################################################################################################################################################################
 ##                                                          Create Customer Activities                                                                                         ##
@@ -211,4 +212,4 @@ dfactivities = (
     )
 
 # Write Activities to S3
-dfactivities.write.partitionBy("year", "month", "day").parquet(parameters['s3_output_activities'])
+dfactivities.repartition(5).write.mode("overwrite").parquet(parameters['s3_output_activities'])

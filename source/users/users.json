@@ -1,12 +1,43 @@
 {
     "users": [
-        "username08",
+        "username01",
+        "username02",
+        "username03",
         "username04",
+        "username05",
         "username06",
-        "username07"
+        "username07",
+        "username08",
+        "username09",
+        "username10",
+        "username11",
+        "username12",
+        "username13",
+        "username14",
+        "username15",
+        "username16",
+        "username17",
+        "username18",
+        "username19",
+        "username20",
+        "username21",
+        "username22",
+        "username23",
+        "username24",
+        "username25",
+        "username26",
+        "username27",
+        "username28",
+        "username29",
+        "username30",
+        "username31",
+        "username32",
+        "username33",
+        "username34",
+        "username35"
     ],
     "userDetails": {
-        "Group": "customer360-participant1",
+        "Group": "customer360-participant",
         "DataStagingAreas": ["landing","trusted","refined"],
         "createS3Buckets": true,
         "S3NamingConvention": "customer360-{username}-{area}-eaberlin",
@@ -18,17 +49,17 @@
         {
             "PolicyName": "Customer360DMSFullAccessPolicy",
             "PolicyJsonPath": "./policies/group/dms-access.json",
-            "Group" : "customer360-participant1"
+            "Group" : "customer360-participant"
         },
         {
             "PolicyName": "Customer360GlueFullAccessPolicy",
             "PolicyJsonPath": "./policies/group/glue-access.json",
-            "Group" : "customer360-participant1"
+            "Group" : "customer360-participant"
         },
         {
             "PolicyName": "Customer360S3SourceCodePolicy",
             "PolicyJsonPath": "./policies/participant/allow-s3-source-bucket.json",
-            "Group" : "customer360-participant1"
+            "Group" : "customer360-participant"
         }
     ],
     "userPolicies": [

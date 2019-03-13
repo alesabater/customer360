@@ -93,8 +93,7 @@ def main():
     logger.info("Customer360: Creating IAM Policies for group: [{g}]".format(g=user_list_full[0]['Group']))
     logger.info("----------------------------------------------------------------------------------------------")
     RoleMng.create_group_policies(iam_client, group_policies)
-
-
+    
     
     # Create or retrieve existing secrets for AWS Users
     for u in user_list_full:
@@ -116,7 +115,7 @@ def main():
             
         logger.info("Customer360: Creating S3 buckets for user: {user}".format(user=u['username']))
         logger.info("----------------------------------------------------------------------------------------------")
-        S3Mng.create_participant_buckets(s3_client, u['S3Buckets'])
+       # S3Mng.create_participant_buckets(s3_client, u['S3Buckets'])
 
         if args['delete_glue']:
             logger.info("Customer360: Deleting Glue databases for user: {user}".format(user=u['username']))
@@ -125,12 +124,12 @@ def main():
 
         logger.info("Customer360: Creating Glue Databases for user: {user}".format(user=u['username']))
         logger.info("----------------------------------------------------------------------------------------------")
-        GlueMng.create_participant_databases(glue_client, u['GlueDatabases'])
+        #GlueMng.create_participant_databases(glue_client, u['GlueDatabases'])
 
-        #if args['create_roles']:
-        logger.info("Customer360: Creating policies for user: {user}".format(user=u['username']))
-        logger.info("----------------------------------------------------------------------------------------------")
-        RoleMng.create_user_policies(iam_client, user_policies, u)
-
+        if args['create_roles']:
+            logger.info("Customer360: Creating policies for user: {user}".format(user=u['username']))
+            logger.info("----------------------------------------------------------------------------------------------")
+            RoleMng.create_user_policies(iam_client, user_policies, u)
+        
 if __name__ == '__main__':
     main()
